@@ -1,2 +1,0 @@
-# DRIGHT
-Dright 
