@@ -1,0 +1,7 @@
+export default function TermsPage() {
+  return <LegalPage title="Terms & Conditions" intro="These terms govern use of the DRIGHT platform." sections={["Account eligibility and responsibility", "Marketplace purchases, sales and services", "Affiliate, referral and promotional rules", "Prohibited activity, moderation and enforcement", "Payments, refunds, disputes and withdrawals", "Intellectual property and platform content", "Account suspension, termination and appeals", "Changes to the platform and these terms"]} />;
+}
+
+function LegalPage({ title, intro, sections }: { title: string; intro: string; sections: string[] }) {
+  return <main className="min-h-screen bg-[var(--background)] px-4 py-12 text-[var(--foreground)] sm:px-6"><article className="mx-auto max-w-3xl rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-7 sm:p-10"><p className="text-sm font-semibold text-[var(--muted)]">DRIGHT</p><h1 className="mt-2 text-3xl font-semibold tracking-tight">{title}</h1><p className="mt-4 leading-7 text-[var(--muted)]">{intro} The full legal text should be reviewed and approved by DRIGHT before production launch.</p><div className="mt-8 space-y-7">{sections.map((section) => <section key={section}><h2 className="text-lg font-semibold">{section}</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">DRIGHT will publish the applicable rules, responsibilities, limitations and procedures for this area here. Administrators can maintain approved policy content through the platform CMS.</p></section>)}</div></article></main>;
+}
