@@ -40,7 +40,15 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
         supabase.from("order_items").select("id,item_id,seller_user_id,quantity,unit_price,currency_code,metadata,marketplace_items(id,public_id,title,item_type)").eq("order_id", loadedOrder.id),
         supabase.from("transactions").select("id,transaction_id,amount,currency_code,provider,provider_transaction_id,status,created_at").eq("order_id", loadedOrder.id).order("created_at", { ascending: false }),
       ]);
-      if (itemResult.error) setError(itemResult.error.message); else setItems((itemResult.data || []) as Item[]);
+      if (itemResult.error) {
+        setError(itemResult.error.message);
+      } else {
+        const normalizedItems: Item[] = (itemResult.data || []).map((row) => ({
+          ...row,
+          marketplace_items: Array.isArray(row.marketplace_items) ? (row.marketplace_items[0] ?? null) : row.marketplace_items,
+        }));
+        setItems(normalizedItems);
+      }
       if (!transactionResult.error) setTransactions((transactionResult.data || []) as Transaction[]);
       setLoading(false);
     })();
