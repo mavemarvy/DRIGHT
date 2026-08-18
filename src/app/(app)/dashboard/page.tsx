@@ -1,76 +1,44 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Activity, BarChart3, BookOpen, ChevronRight, CircleDollarSign, Database, FileCheck2, LayoutDashboard, MessageSquare, Search, ShieldCheck, ShoppingBag, Store, Users, Wallet } from "lucide-react";
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { ArrowRight, Bell, Compass, Heart, MessageSquare, ShoppingBag, Sparkles, Store, Users, Wallet } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type TableKey = { label: string; table: string; icon: typeof Database; description: string };
-const groups: { title: string; items: TableKey[] }[] = [
-  { title: "Commerce", items: [
-    { label: "Marketplace", table: "marketplace_items", icon: ShoppingBag, description: "Listings and marketplace inventory" },
-    { label: "Stores", table: "stores", icon: Store, description: "Vendor/store records" },
-    { label: "Orders", table: "orders", icon: CircleDollarSign, description: "Buyer orders" },
-    { label: "Transactions", table: "transactions", icon: Wallet, description: "Commerce transactions" },
-    { label: "Payouts", table: "payouts", icon: Wallet, description: "Seller/affiliate payouts" },
-  ]},
-  { title: "Growth", items: [
-    { label: "Affiliates", table: "affiliate_profiles", icon: Users, description: "Affiliate profiles" },
-    { label: "Commissions", table: "commissions", icon: BarChart3, description: "Commission ledger" },
-    { label: "Search", table: "search_queries", icon: Search, description: "Search activity" },
-    { label: "Recommendations", table: "recommendation_candidates", icon: Activity, description: "Recommendation candidates" },
-  ]},
-  { title: "Community & Learning", items: [
-    { label: "Posts", table: "posts", icon: MessageSquare, description: "Community posts" },
-    { label: "Communities", table: "communities", icon: Users, description: "Community spaces" },
-    { label: "Learning", table: "learning_pages", icon: BookOpen, description: "Learning content" },
-    { label: "Tasks", table: "tasks", icon: FileCheck2, description: "Tasks and challenges" },
-  ]},
-  { title: "Identity & Operations", items: [
-    { label: "Profiles", table: "profiles", icon: Users, description: "User profiles" },
-    { label: "Roles", table: "user_roles", icon: ShieldCheck, description: "User role assignments" },
-    { label: "Verification", table: "verification_submissions", icon: FileCheck2, description: "Verification submissions" },
-    { label: "Notifications", table: "notifications", icon: Activity, description: "User notifications" },
-    { label: "Messages", table: "messages", icon: MessageSquare, description: "Messaging records" },
-  ]},
-];
-
-async function countTable(table: string) {
-  const supabase = createClient();
-  const { count, error } = await supabase.from(table).select("*", { count: "exact", head: true });
-  if (error) return { count: null, error: error.message };
-  return { count: count ?? 0, error: null };
-}
+type Profile = { username: string | null; full_name: string | null; };
+type Count = { orders: number; favorites: number; notifications: number; messages: number; };
 
 export default function DashboardPage() {
-  const [counts, setCounts] = useState<Record<string, number | null>>({});
-  const [errors, setErrors] = useState<Record<string, string>>({});
+  const supabase = createClient();
+  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null });
+  const [counts, setCounts] = useState<Count>({ orders: 0, favorites: 0, notifications: 0, messages: 0 });
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<TableKey | null>(null);
-  const items = useMemo(() => groups.flatMap((group) => group.items), []);
 
-  async function refresh() {
-    setLoading(true);
-    const results = await Promise.all(items.map(async (item) => [item.table, await countTable(item.table)] as const));
-    const nextCounts: Record<string, number | null> = {};
-    const nextErrors: Record<string, string> = {};
-    for (const [table, result] of results) { nextCounts[table] = result.count; if (result.error) nextErrors[table] = result.error; }
-    setCounts(nextCounts); setErrors(nextErrors); setLoading(false);
-  }
-  useEffect(() => { refresh(); }, []);
+  useEffect(() => {
+    async function load() {
+      const { data: auth } = await supabase.auth.getUser();
+      const userId = auth.user?.id;
+      if (!userId) return;
+      const [{ data: p }, orders, favorites, notifications, messages] = await Promise.all([
+        supabase.from("profiles").select("username,full_name").eq("id", userId).maybeSingle(),
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", userId),
+        supabase.from("post_saves").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        supabase.from("messages").select("id", { count: "exact", head: true }).eq("sender_id", userId),
+      ]);
+      setProfile(p ?? { username: null, full_name: null });
+      setCounts({ orders: orders.count ?? 0, favorites: favorites.count ?? 0, notifications: notifications.count ?? 0, messages: messages.count ?? 0 });
+      setLoading(false);
+    }
+    load();
+  }, []);
 
-  return (
-    <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <header className="sticky top-0 z-20 border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-4">
-          <div className="flex items-center gap-3"><div className="flex h-10 w-10 items-center justify-center rounded-xl bg-[var(--primary)] text-[var(--background)]"><LayoutDashboard size={19} /></div><div><p className="text-xs font-medium text-[var(--muted)]">DRIGHT</p><h1 className="text-xl font-semibold">Platform Test Dashboard</h1></div></div>
-          <button onClick={refresh} className="rounded-xl border border-[var(--border)] px-4 py-2 text-sm font-medium hover:bg-[var(--surface)]">{loading ? "Checking…" : "Refresh"}</button>
-        </div>
-      </header>
-      <div className="mx-auto max-w-7xl px-5 py-8">
-        <section className="mb-8 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6"><div className="flex items-start gap-4"><div className="mt-1 rounded-xl bg-[var(--background)] p-3"><Database size={20} /></div><div><h2 className="text-lg font-semibold">Supabase feature smoke tests</h2><p className="mt-1 max-w-3xl text-sm leading-6 text-[var(--muted)]">This dashboard checks the current live schema through the authenticated Supabase client. Each card tests read access under the existing RLS policies.</p></div></div></section>
-        {groups.map((group) => <section key={group.title} className="mb-9"><div className="mb-3 flex items-center justify-between"><h2 className="text-sm font-semibold uppercase tracking-wider text-[var(--muted)]">{group.title}</h2><span className="text-xs text-[var(--muted)]">{group.items.length} tests</span></div><div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">{group.items.map((item) => { const Icon = item.icon; const error = errors[item.table]; const value = counts[item.table]; return <button key={item.table} onClick={() => setSelected(item)} className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 text-left transition hover:-translate-y-0.5 hover:shadow-md"><div className="flex items-start justify-between"><span className="rounded-xl bg-[var(--background)] p-2.5"><Icon size={19} /></span><ChevronRight size={18} className="text-[var(--muted)] transition group-hover:translate-x-1" /></div><div className="mt-5"><h3 className="font-semibold">{item.label}</h3><p className="mt-1 text-sm text-[var(--muted)]">{item.description}</p></div><div className="mt-5 flex items-center justify-between border-t border-[var(--border)] pt-4"><span className="text-xs font-mono text-[var(--muted)]">{item.table}</span><span className={`text-sm font-semibold ${error ? "text-red-600" : ""}`}>{loading ? "…" : error ? "RLS/error" : `${value ?? 0} rows`}</span></div></button>; })}</div></section>)}
-      </div>
-      {selected && <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/30 p-4 sm:items-center" onClick={() => setSelected(null)}><section className="w-full max-w-lg rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-xl" onClick={(e) => e.stopPropagation()}><div className="flex items-center justify-between"><div><p className="text-xs uppercase tracking-wider text-[var(--muted)]">Smoke test</p><h2 className="mt-1 text-xl font-semibold">{selected.label}</h2></div><button onClick={() => setSelected(null)} className="rounded-lg px-3 py-1 text-sm text-[var(--muted)]">Close</button></div><div className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--background)] p-4"><p className="text-xs text-[var(--muted)]">Table</p><p className="mt-1 font-mono text-sm">{selected.table}</p><p className="mt-4 text-xs text-[var(--muted)]">Read status</p><p className={`mt-1 font-semibold ${errors[selected.table] ? "text-red-600" : ""}`}>{errors[selected.table] ?? `Accessible — ${counts[selected.table] ?? 0} visible rows`}</p></div><p className="mt-5 text-sm leading-6 text-[var(--muted)]">The test uses the normal browser Supabase client. It never bypasses RLS or uses a service-role credential.</p></section></div>}
-    </main>
-  );
+  const name = profile.full_name || profile.username || "there";
+  const quick = [["Explore marketplace", "Find products, services, courses, jobs and tasks.", "/marketplace", Compass], ["Open your buyer space", "Track purchases, saved items and activity.", "/buyer", ShoppingBag], ["Build & earn", "Explore vendor and affiliate capabilities.", "/vendor", Store]] as const;
+  return <div className="mx-auto max-w-7xl px-4 py-7 sm:px-6 lg:px-8">
+    <section className="rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-9"><div className="flex flex-col gap-7 lg:flex-row lg:items-end lg:justify-between"><div><p className="text-sm font-medium text-[var(--muted)]">Welcome back</p><h1 className="mt-1 text-3xl font-semibold tracking-tight sm:text-4xl">Good to see you, {name}.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">DRIGHT brings discovery, commerce, learning, communities and earning into one account.</p></div><Link href="/marketplace" className="inline-flex w-fit items-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-medium text-[var(--background)]">Explore marketplace <ArrowRight size={17} /></Link></div></section>
+    <section className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">{[["Orders", counts.orders, ShoppingBag, "/orders"], ["Saved", counts.favorites, Heart, "/favorites"], ["Notifications", counts.notifications, Bell, "/notifications"], ["Messages", counts.messages, MessageSquare, "/messages"]].map(([label, value, Icon, href]) => <Link href={href as string} key={label as string} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 transition hover:shadow-md"><Icon size={19} /><p className="mt-5 text-sm text-[var(--muted)]">{label as string}</p><p className="mt-1 text-2xl font-semibold">{loading ? "—" : value as number}</p></Link>)}</section>
+    <section className="mt-10"><div className="flex items-center justify-between"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Your ecosystem</p><h2 className="mt-1 text-2xl font-semibold">Choose what to do next</h2></div><Sparkles size={20} /></div><div className="mt-5 grid gap-5 md:grid-cols-3">{quick.map(([title, text, href, Icon]) => <Link href={href} key={href} className="group rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 transition hover:-translate-y-0.5 hover:shadow-md"><Icon size={22} /><h3 className="mt-6 font-semibold">{title}</h3><p className="mt-2 text-sm leading-6 text-[var(--muted)]">{text}</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-medium">Open <ArrowRight size={16} className="transition group-hover:translate-x-1" /></span></Link>)}</div></section>
+    <section className="mt-10 grid gap-5 md:grid-cols-2"><article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><div className="flex items-center gap-3"><Users size={20} /><h3 className="font-semibold">One account, many possibilities</h3></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">Start as a buyer, then activate vendor, affiliate, creator and other capabilities when eligible. Role switching remains governed by DRIGHT permissions and platform rules.</p></article><article className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><div className="flex items-center gap-3"><Wallet size={20} /><h3 className="font-semibold">Your activity becomes intelligence</h3></div><p className="mt-3 text-sm leading-6 text-[var(--muted)]">Searches, browsing, saves and purchases can progressively improve recommendations while respecting the privacy and RLS boundaries of your account.</p></article></section>
+  </div>;
 }
