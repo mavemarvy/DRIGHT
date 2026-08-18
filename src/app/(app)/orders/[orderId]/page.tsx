@@ -5,15 +5,16 @@ import { useEffect, useState } from "react";
 import { ArrowLeft, CheckCircle2, Clock3, Download, ExternalLink, FileWarning, MessageSquare, PackageCheck, ReceiptText, ShieldAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
- type Order = { id: string; order_id: string; status: string; currency_code: string; subtotal: number; platform_fee: number; task_fee: number; total: number; created_at?: string };
- type Item = { id: string; item_id: string; seller_user_id: string; quantity: number; unit_price: number; currency_code: string; metadata?: Record<string, unknown>; marketplace_items?: { id: string; public_id?: string; title?: string; item_type?: string | null } | null };
- type Transaction = { id: string; transaction_id: string; amount: number; currency_code: string; provider?: string | null; provider_transaction_id?: string | null; status: string; created_at: string };
+type Order = { id: string; order_id: string; status: string; currency_code: string; subtotal: number; platform_fee: number; task_fee: number; total: number; created_at?: string };
+type Item = { id: string; item_id: string; seller_user_id: string; quantity: number; unit_price: number; currency_code: string; metadata?: Record<string, unknown>; marketplace_items?: { id: string; public_id?: string; title?: string; item_type?: string | null } | null };
+type Transaction = { id: string; transaction_id: string; amount: number; currency_code: string; provider?: string | null; provider_transaction_id?: string | null; status: string; created_at: string };
 
 const labels: Record<string, string> = { pending: "Pending payment", payment_processing: "Payment processing", paid: "Paid", processing: "Processing", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", refunded: "Refunded", disputed: "Disputed", refund_pending: "Refund pending" };
 const steps = ["pending", "paid", "processing", "delivered", "completed"];
 
-export default function OrderDetailPage({ params }: { params: { orderId: string } }) {
+export default function OrderDetailPage({ params }: { params: Promise<{ orderId: string }> }) {
   const supabase = createClient();
+  const [orderId, setOrderId] = useState("");
   const [order, setOrder] = useState<Order | null>(null);
   const [items, setItems] = useState<Item[]>([]);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -23,10 +24,13 @@ export default function OrderDetailPage({ params }: { params: { orderId: string 
   useEffect(() => {
     let active = true;
     (async () => {
+      const { orderId: resolvedOrderId } = await params;
+      if (!active) return;
+      setOrderId(resolvedOrderId);
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { window.location.href = `/login?next=/orders/${encodeURIComponent(params.orderId)}`; return; }
+      if (!user) { window.location.href = `/login?next=/orders/${encodeURIComponent(resolvedOrderId)}`; return; }
 
-      const orderResult = await supabase.from("orders").select("id,order_id,status,currency_code,subtotal,platform_fee,task_fee,total,created_at").eq("buyer_user_id", user.id).eq("order_id", params.orderId).maybeSingle();
+      const orderResult = await supabase.from("orders").select("id,order_id,status,currency_code,subtotal,platform_fee,task_fee,total,created_at").eq("buyer_user_id", user.id).eq("order_id", resolvedOrderId).maybeSingle();
       if (!active) return;
       if (orderResult.error || !orderResult.data) { setError(orderResult.error?.message || "Order not found or you do not have access to it."); setLoading(false); return; }
       const loadedOrder = orderResult.data as Order;
@@ -41,7 +45,7 @@ export default function OrderDetailPage({ params }: { params: { orderId: string 
       setLoading(false);
     })();
     return () => { active = false; };
-  }, [params.orderId]);
+  }, [params]);
 
   if (loading) return <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8"><div className="h-96 animate-pulse rounded-[2rem] border border-[var(--border)] bg-[var(--surface)]" /></div>;
   if (error || !order) return <div className="mx-auto max-w-3xl px-4 py-12 text-center"><FileWarning size={32} className="mx-auto" /><h1 className="mt-5 text-2xl font-semibold">Unable to open order</h1><p className="mt-2 text-sm text-[var(--muted)]">{error || "Order not found."}</p><Link href="/orders" className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold"><ArrowLeft size={16} /> Back to orders</Link></div>;
