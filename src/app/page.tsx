@@ -1,31 +1,55 @@
 import Link from "next/link";
-import { ArrowRight, Globe2, LogIn, ShieldCheck, Sparkles, UserPlus } from "lucide-react";
+import { ArrowRight, BookOpen, BriefcaseBusiness, CheckCircle2, Compass, GraduationCap, ListChecks, Search, ShoppingBag, Sparkles, Wrench } from "lucide-react";
 
-const features = [
-  { icon: Globe2, title: "Worldwide by design", text: "International language and currency architecture from day one." },
-  { icon: ShieldCheck, title: "Built for trust", text: "Verification, moderation, permissions and auditability are foundational." },
-  { icon: Sparkles, title: "AI-ready", text: "AI capabilities can be added through a provider-independent architecture." },
+const types = [
+  { label: "All", href: "/marketplace", icon: Compass },
+  { label: "Products", href: "/marketplace?type=product", icon: ShoppingBag },
+  { label: "Services", href: "/marketplace?type=service", icon: Wrench },
+  { label: "Courses", href: "/marketplace?type=course", icon: GraduationCap },
+  { label: "Jobs", href: "/marketplace?type=job", icon: BriefcaseBusiness },
+  { label: "Tasks", href: "/marketplace?type=task", icon: ListChecks },
 ];
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-[var(--background)] text-[var(--foreground)]">
-      <section className="mx-auto flex min-h-screen max-w-6xl flex-col justify-center px-6 py-20">
-        <div className="mb-8 inline-flex w-fit items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--muted)]"><Sparkles size={16} /> DRIGHT foundation</div>
-        <h1 className="max-w-4xl text-5xl font-semibold tracking-tight sm:text-7xl">The worldwide marketplace is being built.</h1>
-        <p className="mt-6 max-w-2xl text-lg leading-8 text-[var(--muted)]">DRIGHT is a marketplace and social-commerce platform for products, services, courses and jobs, with communities, creators, affiliates, administration and AI capabilities.</p>
+      <header className="border-b border-[var(--border)] bg-[var(--background)]/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link href="/" className="text-xl font-bold tracking-tight">DRIGHT</Link>
+          <nav className="hidden items-center gap-7 text-sm md:flex">
+            <Link href="/marketplace" className="hover:opacity-70">Marketplace</Link>
+            <Link href="/login" className="hover:opacity-70">Sign in</Link>
+            <Link href="/signup" className="rounded-xl bg-[var(--primary)] px-4 py-2 font-medium text-[var(--background)]">Create account</Link>
+          </nav>
+          <Link href="/signup" className="rounded-xl bg-[var(--primary)] px-4 py-2 text-sm font-medium text-[var(--background)] md:hidden">Join DRIGHT</Link>
+        </div>
+      </header>
 
-        <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-          <Link href="/signup" className="inline-flex items-center justify-center gap-2 rounded-xl bg-[var(--primary)] px-5 py-3 font-medium text-[var(--background)]"><UserPlus size={18} /> Create account <ArrowRight size={18} /></Link>
-          <Link href="/login" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-5 py-3 font-medium"><LogIn size={18} /> Sign in</Link>
+      <section className="mx-auto max-w-7xl px-4 pb-12 pt-14 sm:px-6 sm:pt-20 lg:px-8">
+        <div className="max-w-4xl">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2 text-sm text-[var(--muted)]"><Sparkles size={16} /> Commerce, community and opportunity</div>
+          <h1 className="mt-6 text-4xl font-semibold tracking-tight sm:text-6xl lg:text-7xl">Discover what you need.<br />Build what you want.</h1>
+          <p className="mt-5 max-w-2xl text-base leading-7 text-[var(--muted)] sm:text-lg">DRIGHT is a worldwide marketplace and social-commerce ecosystem for products, services, courses, jobs and tasks — with creators, communities, affiliates and AI-powered discovery.</p>
         </div>
 
-        <div id="foundation" className="mt-20 grid gap-5 md:grid-cols-3">
-          {features.map(({ icon: Icon, title, text }) => (
-            <article key={title} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6"><Icon size={22} /><h2 className="mt-5 text-xl font-semibold">{title}</h2><p className="mt-2 leading-7 text-[var(--muted)]">{text}</p></article>
-          ))}
+        <form action="/marketplace" className="mt-9 flex max-w-3xl items-center gap-3 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2 shadow-sm">
+          <Search className="ml-3 shrink-0 text-[var(--muted)]" size={21} />
+          <input name="q" placeholder="What are you looking for?" className="min-w-0 flex-1 bg-transparent px-1 py-3 text-sm outline-none" />
+          <button className="rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-medium text-[var(--background)]">Search</button>
+        </form>
+
+        <div className="mt-5 flex gap-2 overflow-x-auto pb-2">
+          {types.map(({ label, href, icon: Icon }) => <Link key={label} href={href} className="flex shrink-0 items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-sm hover:shadow-sm"><Icon size={16} />{label}</Link>)}
+        </div>
+
+        <div className="mt-14 grid gap-5 md:grid-cols-3">
+          <Link href="/marketplace" className="group rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-7 transition hover:-translate-y-0.5 hover:shadow-md"><ShoppingBag size={23} /><h2 className="mt-7 text-xl font-semibold">Marketplace</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Explore approved products, services, courses, jobs and tasks in one place.</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-medium">Explore <ArrowRight size={16} className="transition group-hover:translate-x-1" /></span></Link>
+          <Link href="/signup" className="group rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-7 transition hover:-translate-y-0.5 hover:shadow-md"><BookOpen size={23} /><h2 className="mt-7 text-xl font-semibold">Create & earn</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Join as a buyer and grow into a vendor, affiliate, creator, service provider or educator.</p><span className="mt-5 inline-flex items-center gap-2 text-sm font-medium">Get started <ArrowRight size={16} className="transition group-hover:translate-x-1" /></span></Link>
+          <div className="rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-7"><CheckCircle2 size={23} /><h2 className="mt-7 text-xl font-semibold">Built for trust</h2><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Verification, moderation, permissions, secure transactions and accountable platform operations are built into the foundation.</p></div>
         </div>
       </section>
+
+      <footer className="border-t border-[var(--border)] py-8"><div className="mx-auto flex max-w-7xl flex-col gap-2 px-4 text-sm text-[var(--muted)] sm:px-6 lg:px-8 sm:flex-row sm:items-center sm:justify-between"><span>© {new Date().getFullYear()} DRIGHT</span><span>Worldwide marketplace & social commerce</span></div></footer>
     </main>
   );
 }
