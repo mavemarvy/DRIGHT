@@ -3,12 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { BarChart3, ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, LogOut, Menu, Settings, ShieldCheck, ShoppingCart, Users, Wallet, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const nav = [
   ["Overview", "/admin", LayoutDashboard],
   ["Feature Control", "/admin/features", Settings],
+  ["ID Lookup", "/admin/ids", Search],
   ["Finance", "/admin/finance", DollarSign],
   ["Refunds & Disputes", "/admin/refunds", FileText],
 ] as const;
