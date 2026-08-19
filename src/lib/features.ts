@@ -11,6 +11,16 @@ export type Feature = {
   config: Record<string, unknown>;
 };
 
+type FeatureRow = {
+  feature_id: string;
+  feature_key: string;
+  display_name: string;
+  status: FeatureStatus;
+  searchable: boolean;
+  discoverable: boolean;
+  config: Record<string, unknown> | null;
+};
+
 export const FEATURE_KEYS = {
   terms: "terms",
   privacy: "privacy",
@@ -40,7 +50,16 @@ export async function getFeatureMap() {
     .from("feature_registry")
     .select("feature_id,feature_key,display_name,status,searchable,discoverable,config");
   if (error) throw error;
-  return Object.fromEntries((data ?? []).map((feature) => [feature.feature_key, feature as Feature]));
+  const rows = (data ?? []) as FeatureRow[];
+  return Object.fromEntries(
+    rows.map((feature: FeatureRow) => [
+      feature.feature_key,
+      {
+        ...feature,
+        config: feature.config ?? {},
+      } as Feature,
+    ]),
+  );
 }
 
 export function featureUsable(feature?: Feature) {
