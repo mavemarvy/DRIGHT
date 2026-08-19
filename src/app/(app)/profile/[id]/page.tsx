@@ -8,7 +8,9 @@ import { createClient } from "@/lib/supabase/client";
 type Profile = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; cover_url: string | null; profession: string | null; country: string | null; website: string | null; skills: string[] | null; languages: string[] | null; profile_visibility: string | null; created_at: string };
 type Listing = { id: string; public_id: string | null; title: string; price: number | null; currency_code: string | null; image_url: string | null; item_type: string | null };
 
-export default function PublicProfilePage({ params }: { params: { id: string } }) {
+type ProfileRouteProps = { params: Promise<{ id: string }> };
+
+export default function PublicProfilePage({ params }: ProfileRouteProps) {
   const supabase = useMemo(() => createClient(), []);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [listings, setListings] = useState<Listing[]>([]);
@@ -19,50 +21,56 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [profileId, setProfileId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
+      const { id } = await params;
+      if (cancelled) return;
+      setProfileId(id);
       setLoading(true); setError("");
-      const { data: target, error: profileError } = await supabase.from("user_profiles").select("id,username,display_name,bio,avatar_url,cover_url,profession,country,website,skills,languages,profile_visibility,created_at").eq("id", params.id).maybeSingle();
+      const { data: target, error: profileError } = await supabase.from("user_profiles").select("id,username,display_name,bio,avatar_url,cover_url,profession,country,website,skills,languages,profile_visibility,created_at").eq("id", id).maybeSingle();
       if (profileError || !target) { if (!cancelled) { setError(profileError?.message || "This profile is unavailable."); setLoading(false); } return; }
       if (cancelled) return;
       setProfile(target as Profile);
       const [{ count: followerCount }, { count: followingCount }, { data: owned }] = await Promise.all([
-        supabase.from("follows").select("follower_user_id", { count: "exact", head: true }).eq("following_user_id", params.id),
-        supabase.from("follows").select("following_user_id", { count: "exact", head: true }).eq("follower_user_id", params.id),
-        supabase.from("marketplace_items").select("id,public_id,title,price,currency_code,image_url,item_type").eq("owner_user_id", params.id).eq("status", "published").order("created_at", { ascending: false }).limit(12),
+        supabase.from("follows").select("follower_user_id", { count: "exact", head: true }).eq("following_user_id", id),
+        supabase.from("follows").select("following_user_id", { count: "exact", head: true }).eq("follower_user_id", id),
+        supabase.from("marketplace_items").select("id,public_id,title,price,currency_code,image_url,item_type").eq("owner_user_id", id).eq("status", "published").order("created_at", { ascending: false }).limit(12),
       ]);
       setFollowers(followerCount || 0); setFollowing(followingCount || 0); setListings((owned || []) as Listing[]);
       const { data: { user } } = await supabase.auth.getUser();
-      if (user && user.id !== params.id) {
+      if (user && user.id !== id) {
         const [{ data: followRow }, { data: likeRow }] = await Promise.all([
-          supabase.from("follows").select("follower_user_id").eq("follower_user_id", user.id).eq("following_user_id", params.id).maybeSingle(),
-          supabase.from("profile_likes").select("id").eq("liker_user_id", user.id).eq("liked_user_id", params.id).maybeSingle(),
+          supabase.from("follows").select("follower_user_id").eq("follower_user_id", user.id).eq("following_user_id", id).maybeSingle(),
+          supabase.from("profile_likes").select("id").eq("liker_user_id", user.id).eq("liked_user_id", id).maybeSingle(),
         ]);
         setFollowingUser(Boolean(followRow)); setLiked(Boolean(likeRow));
       }
       if (!cancelled) setLoading(false);
     }
     void load(); return () => { cancelled = true; };
-  }, [params.id, supabase]);
+  }, [params, supabase]);
 
   async function toggleFollow() {
+    const id = profileId;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = `/login?next=/profile/${params.id}`; return; }
-    if (user.id === params.id) return;
+    if (!user) { window.location.href = `/login?next=/profile/${id}`; return; }
+    if (!id || user.id === id) return;
     setBusy(true);
-    const result = followingUser ? await supabase.from("follows").delete().eq("follower_user_id", user.id).eq("following_user_id", params.id) : await supabase.from("follows").insert({ follower_user_id: user.id, following_user_id: params.id });
+    const result = followingUser ? await supabase.from("follows").delete().eq("follower_user_id", user.id).eq("following_user_id", id) : await supabase.from("follows").insert({ follower_user_id: user.id, following_user_id: id });
     if (!result.error) { setFollowingUser(!followingUser); setFollowers(value => Math.max(0, value + (followingUser ? -1 : 1))); }
     setBusy(false);
   }
 
   async function toggleLike() {
+    const id = profileId;
     const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = `/login?next=/profile/${params.id}`; return; }
-    if (user.id === params.id) return;
+    if (!user) { window.location.href = `/login?next=/profile/${id}`; return; }
+    if (!id || user.id === id) return;
     setBusy(true);
-    const result = liked ? await supabase.from("profile_likes").delete().eq("liker_user_id", user.id).eq("liked_user_id", params.id) : await supabase.from("profile_likes").insert({ liker_user_id: user.id, liked_user_id: params.id });
+    const result = liked ? await supabase.from("profile_likes").delete().eq("liker_user_id", user.id).eq("liked_user_id", id) : await supabase.from("profile_likes").insert({ liker_user_id: user.id, liked_user_id: id });
     if (!result.error) setLiked(!liked);
     setBusy(false);
   }
@@ -78,7 +86,7 @@ export default function PublicProfilePage({ params }: { params: { id: string } }
       <div className="px-5 pb-6 sm:px-8">
         <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex items-end gap-4"><div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--surface)] bg-[var(--background)] sm:h-32 sm:w-32">{profile.avatar_url ? <img src={profile.avatar_url} alt={name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-3xl font-bold">{name.slice(0,1).toUpperCase()}</div>}</div><div className="pb-1"><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">{name}</h1><ShieldCheck size={18} /></div>{profile.username && <p className="text-sm text-[var(--muted)]">@{profile.username}</p>}{profile.profession && <p className="mt-1 text-sm font-medium">{profile.profession}</p>}</div></div>
-          <div className="flex gap-2"><button onClick={toggleLike} disabled={busy} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${liked ? "bg-[var(--primary)] text-[var(--primary-contrast)]" : "border-[var(--border)]"}`}><Heart size={16} fill={liked ? "currentColor" : "none"}/> Like</button><button onClick={toggleFollow} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 text-sm font-semibold text-[var(--primary-contrast)]">{followingUser ? <><UserRoundMinus size={16}/> Following</> : <><UserPlus size={16}/> Follow</>}</button></div>
+          <div className="flex gap-2"><button onClick={toggleLike} disabled={busy} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${liked ? "bg-[var(--primary)] text-[var(--primary-contrast)]" : "border-[var(--border)]"}`}><Heart size={16} fill={liked ? "currentColor" : "none"}/> Like</button><button onClick={toggleFollow} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 font-semibold text-[var(--primary-contrast)]">{followingUser ? <><UserRoundMinus size={16}/> Following</> : <><UserPlus size={16}/> Follow</>}</button></div>
         </div>
         {profile.bio && <p className="mt-5 max-w-3xl text-sm leading-6 text-[var(--muted)]">{profile.bio}</p>}
         <div className="mt-5 flex flex-wrap gap-5 text-sm"><span><strong>{followers}</strong> followers</span><span><strong>{following}</strong> following</span><span><strong>{listings.length}</strong> listings</span></div>
