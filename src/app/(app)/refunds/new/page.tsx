@@ -36,7 +36,7 @@ export default function NewRefundPage() {
     setBusy(true); setMessage("");
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setMessage("Please sign in again."); setBusy(false); return; }
-    const { data, error } = await supabase.from("refund_disputes").insert({ transaction_id: transaction.id, reporter_user_id: user.id, reason_type: reasonType, reason: reason.trim(), evidence: [], status: "open" }).select("case_id").single();
+    const { data, error } = await supabase.from("refund_disputes").insert({ transaction_id: transaction.id, reporter_user_id: user.id, reason_type: `${type}:${reasonType}`, reason: reason.trim(), evidence: [], status: "open" }).select("case_id").single();
     if (error) setMessage(error.message); else setMessage(`Case ${data?.case_id || "created"} is now open. DRIGHT will route it for review.`);
     setBusy(false);
   }
