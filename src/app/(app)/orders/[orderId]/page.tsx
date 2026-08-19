@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 
 type Order = { id: string; order_id: string; status: string; currency_code: string; subtotal: number; platform_fee: number; task_fee: number; total: number; created_at?: string };
 type Item = { id: string; item_id: string; seller_user_id: string; quantity: number; unit_price: number; currency_code: string; metadata?: Record<string, unknown>; marketplace_items?: { id: string; public_id?: string; title?: string; item_type?: string | null } | null };
+type OrderItemRow = Omit<Item, "marketplace_items"> & { marketplace_items: Item["marketplace_items"] | Item["marketplace_items"][] };
 type Transaction = { id: string; transaction_id: string; amount: number; currency_code: string; provider?: string | null; provider_transaction_id?: string | null; status: string; created_at: string };
 
 const labels: Record<string, string> = { pending: "Pending payment", payment_processing: "Payment processing", paid: "Paid", processing: "Processing", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", refunded: "Refunded", disputed: "Disputed", refund_pending: "Refund pending" };
@@ -43,7 +44,8 @@ export default function OrderDetailPage({ params }: { params: Promise<{ orderId:
       if (itemResult.error) {
         setError(itemResult.error.message);
       } else {
-        const normalizedItems: Item[] = (itemResult.data || []).map((row) => ({
+        const rows = (itemResult.data || []) as unknown as OrderItemRow[];
+        const normalizedItems: Item[] = rows.map((row: OrderItemRow) => ({
           ...row,
           marketplace_items: Array.isArray(row.marketplace_items) ? (row.marketplace_items[0] ?? null) : row.marketplace_items,
         }));
