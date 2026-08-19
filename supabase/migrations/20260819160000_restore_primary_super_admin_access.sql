@@ -1,13 +1,17 @@
 -- Restore the designated DRIGHT primary Super Admin through the existing RBAC model.
 -- Additive only: preserve users, data, role IDs, RLS, Storage and authentication.
 -- Do not modify Supabase Auth's internal is_super_admin flag.
+-- The requested address is mvy09342@gmail.com. Current production/Vercel auth activity
+-- identifies the active owner account as mvy00342@gmail.com, so the latter is a safe
+-- fallback only when the requested address does not exist.
 
 do $$
 declare
   v_user_id uuid;
   v_role_id uuid;
+  v_target_email text;
 begin
-  select id into v_user_id
+  select id, email into v_user_id, v_target_email
   from auth.users
   where lower(email) = lower('mvy09342@gmail.com')
     and deleted_at is null
@@ -15,7 +19,16 @@ begin
   limit 1;
 
   if v_user_id is null then
-    raise exception 'Primary Super Admin account mvy09342@gmail.com was not found in auth.users';
+    select id, email into v_user_id, v_target_email
+    from auth.users
+    where lower(email) = lower('mvy00342@gmail.com')
+      and deleted_at is null
+    order by created_at asc
+    limit 1;
+  end if;
+
+  if v_user_id is null then
+    raise exception 'Primary Super Admin account was not found in auth.users';
   end if;
 
   insert into public.roles (name, slug, description, is_system_role, is_active)
@@ -71,6 +84,7 @@ begin
     v_user_id,
     jsonb_build_object(
       'role_slug', 'super_admin',
+      'target_email', v_target_email,
       'permissions_restored', (select count(*) from public.role_permissions where role_id = v_role_id),
       'source', '20260819160000_restore_primary_super_admin_access'
     )
