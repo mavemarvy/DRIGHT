@@ -9,6 +9,8 @@ type OrderRow = { id: string; order_id: string; status: string; currency_code: s
 type ItemRow = { id: string; order_id: string; item_id: string; quantity: number; unit_price: number; seller_user_id: string; marketplace_items: { public_id?: string; title?: string; item_type?: string | null } | { public_id?: string; title?: string; item_type?: string | null }[] | null; orders: OrderRow | OrderRow[] | null };
 type Fulfillment = { id: string; order_id: string; order_item_id: string; fulfillment_id: string; status: string; delivered_at?: string | null };
 
+type SupabaseFulfillmentRow = { id: string; order_item_id: string; order_id: string; fulfillment_id: string; status: string; delivered_at?: string | null };
+
 const tabs = ["all", "pending", "processing", "ready_for_delivery", "delivered", "completed", "cancelled", "refunded", "disputed"];
 const labels: Record<string, string> = { all: "All", pending: "New", processing: "Processing", ready_for_delivery: "Ready", delivered: "Delivered", completed: "Completed", cancelled: "Cancelled", refunded: "Refunded", disputed: "Disputed" };
 
@@ -28,7 +30,8 @@ export default function VendorOrdersPage() {
       if (itemError) { setError(itemError.message); setLoading(false); return; }
       const { data: fulfillments, error: fulfillmentError } = await supabase.from("order_fulfillments").select("id,order_id,order_item_id,fulfillment_id,status,delivered_at").eq("seller_user_id", user.id);
       if (fulfillmentError) { setError(fulfillmentError.message); setLoading(false); return; }
-      const fMap = new Map((fulfillments || []).map((f) => [f.order_item_id, f as Fulfillment]));
+      const fulfillmentRows = (fulfillments || []) as SupabaseFulfillmentRow[];
+      const fMap = new Map<string, Fulfillment>(fulfillmentRows.map((f: SupabaseFulfillmentRow) => [f.order_item_id, f as Fulfillment]));
       const normalized = (data || []).flatMap((item: any) => {
         const order = Array.isArray(item.orders) ? item.orders[0] : item.orders;
         return order ? [{ item: item as ItemRow, order: order as OrderRow, fulfillment: fMap.get(item.id) || null }] : [];
