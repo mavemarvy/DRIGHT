@@ -22,28 +22,33 @@ type Count = { orders: number; favorites: number; notifications: number; message
 type StatCard = [label: string, value: number, icon: LucideIcon, href: string];
 type QuickCard = [title: string, text: string, href: string, icon: LucideIcon];
 
+const supabase = createClient();
+
 export default function DashboardPage() {
-  const supabase = createClient();
   const [profile, setProfile] = useState<Profile>({ username: null, full_name: null });
   const [counts, setCounts] = useState<Count>({ orders: 0, favorites: 0, notifications: 0, messages: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
+
     async function load() {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) {
-        setLoading(false);
+        if (active) setLoading(false);
         return;
       }
 
       const [{ data: p }, orders, favorites, notifications, messages] = await Promise.all([
         supabase.from("profiles").select("username,full_name").eq("id", userId).maybeSingle(),
-        supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", userId),
-        supabase.from("post_saves").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_user_id", userId),
+        supabase.from("post_saves").select("post_id", { count: "exact", head: true }).eq("user_id", userId),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId),
-        supabase.from("messages").select("id", { count: "exact", head: true }).eq("sender_id", userId),
+        supabase.from("chat_messages").select("id", { count: "exact", head: true }).eq("sender_id", userId).is("deleted_at", null),
       ]);
+
+      if (!active) return;
 
       setProfile(p ?? { username: null, full_name: null });
       setCounts({
@@ -54,8 +59,10 @@ export default function DashboardPage() {
       });
       setLoading(false);
     }
+
     load();
-  }, [supabase]);
+    return () => { active = false; };
+  }, []);
 
   const name = profile.full_name || profile.username || "there";
   const quick: QuickCard[] = [
