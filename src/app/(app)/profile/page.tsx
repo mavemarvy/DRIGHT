@@ -5,17 +5,18 @@ import { Loader2, Lock, Save, User, Users } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = {
+  user_id: string;
   username: string | null;
   full_name: string | null;
-  full_name_public: boolean | null;
+  full_name_visibility: "PUBLIC" | "PRIVATE";
 };
 
 export default function ProfilePage() {
   const supabase = createClient();
-  const [profile, setProfile] = useState<Profile>({ username: null, full_name: null, full_name_public: false });
+  const [profile, setProfile] = useState<Profile>({ user_id: "", username: null, full_name: null, full_name_visibility: "PRIVATE" });
   const [username, setUsername] = useState("");
   const [fullName, setFullName] = useState("");
-  const [fullNamePublic, setFullNamePublic] = useState(false);
+  const [fullNameVisibility, setFullNameVisibility] = useState<"PUBLIC" | "PRIVATE">("PRIVATE");
   const [followers, setFollowers] = useState(0);
   const [following, setFollowing] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -25,23 +26,25 @@ export default function ProfilePage() {
 
   useEffect(() => {
     async function load() {
-      const { data: auth } = await supabase.auth.getUser();
-      const userId = auth.user?.id;
-      if (!userId) return setLoading(false);
-
-      const { data } = await supabase.from("profiles").select("username,full_name,full_name_public").eq("id", userId).maybeSingle();
-      const next = data ?? { username: null, full_name: null, full_name_public: false };
+      const [{ data }, { data: auth }] = await Promise.all([
+        supabase.rpc("get_my_identity"),
+        supabase.auth.getUser(),
+      ]);
+      const next = (data?.[0] as Profile | undefined) ?? { user_id: auth.user?.id ?? "", username: null, full_name: null, full_name_visibility: "PRIVATE" as const };
       setProfile(next);
       setUsername(next.username ?? "");
       setFullName(next.full_name ?? "");
-      setFullNamePublic(Boolean(next.full_name_public));
+      setFullNameVisibility(next.full_name_visibility ?? "PRIVATE");
 
-      const [{ count: followerCount }, { count: followingCount }] = await Promise.all([
-        supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId),
-        supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
-      ]);
-      setFollowers(followerCount ?? 0);
-      setFollowing(followingCount ?? 0);
+      const userId = auth.user?.id;
+      if (userId) {
+        const [{ count: followerCount }, { count: followingCount }] = await Promise.all([
+          supabase.from("follows").select("id", { count: "exact", head: true }).eq("following_id", userId),
+          supabase.from("follows").select("id", { count: "exact", head: true }).eq("follower_id", userId),
+        ]);
+        setFollowers(followerCount ?? 0);
+        setFollowing(followingCount ?? 0);
+      }
       setLoading(false);
     }
     load();
@@ -58,24 +61,22 @@ export default function ProfilePage() {
     }
 
     setSaving(true);
-    const { data: auth } = await supabase.auth.getUser();
-    const userId = auth.user?.id;
-    if (!userId) {
-      setError("Your session has expired. Please sign in again.");
-      setSaving(false);
-      return;
-    }
+    const { data, error: updateError } = await supabase.rpc("update_my_identity", {
+      p_username: normalized,
+      p_full_name: fullName.trim() || null,
+      p_full_name_visibility: fullNameVisibility,
+    });
 
-    const { error: updateError } = await supabase.from("profiles").update({
-      username: normalized,
-      full_name: fullName.trim() || null,
-      full_name_public: fullNamePublic,
-    }).eq("id", userId);
-
-    if (updateError) setError(updateError.message);
-    else {
-      setProfile({ username: normalized, full_name: fullName.trim() || null, full_name_public: fullNamePublic });
-      setUsername(normalized);
+    if (updateError) {
+      setError(updateError.message);
+    } else {
+      const next = data?.[0] as Profile | undefined;
+      if (next) {
+        setProfile(next);
+        setUsername(next.username ?? "");
+        setFullName(next.full_name ?? "");
+        setFullNameVisibility(next.full_name_visibility ?? "PRIVATE");
+      }
       setMessage("Profile updated.");
     }
     setSaving(false);
@@ -99,12 +100,19 @@ export default function ProfilePage() {
       </section>
 
       <form onSubmit={save} className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 sm:p-8">
-        <label className="block"><span className="mb-2 block text-sm font-medium">Username</span><div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--background)] px-4"><span className="text-[var(--muted)]">@</span><input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-transparent px-2 py-3 outline-none" /></div></label>
-        <label className="mt-5 block"><span className="mb-2 block text-sm font-medium">Full name</span><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 outline-none" placeholder="Your full name" /></label>
+        <label className="block"><span className="mb-2 block text-sm font-medium">Username</span><div className="flex items-center rounded-xl border border-[var(--border)] bg-[var(--background)] px-4"><span className="text-[var(--muted)]">@</span><input value={username} onChange={(e) => setUsername(e.target.value)} className="w-full bg-transparent px-2 py-3 outline-none" autoComplete="username" /></div><span className="mt-2 block text-xs text-[var(--muted)]">This is the identity other users search for and see publicly.</span></label>
+        <label className="mt-5 block"><span className="mb-2 block text-sm font-medium">Full name</span><input value={fullName} onChange={(e) => setFullName(e.target.value)} className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 outline-none" placeholder="Your full name" autoComplete="name" /></label>
 
-        <div className="mt-6 flex items-start justify-between gap-5 rounded-xl border border-[var(--border)] p-4">
-          <div className="flex gap-3"><Lock size={19} className="mt-0.5" /><div><p className="text-sm font-medium">Show my full name publicly</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Your username remains public. Turn this off to keep your full name private from other users.</p></div></div>
-          <button type="button" onClick={() => setFullNamePublic((value) => !value)} aria-pressed={fullNamePublic} className={`relative h-6 w-11 shrink-0 rounded-full transition ${fullNamePublic ? "bg-[var(--primary)]" : "bg-[var(--border)]"}`}><span className={`absolute top-1 h-4 w-4 rounded-full bg-white transition ${fullNamePublic ? "left-6" : "left-1"}`} /></button>
+        <div className="mt-6 rounded-xl border border-[var(--border)] p-4">
+          <div className="flex items-start gap-3"><Lock size={19} className="mt-0.5" /><div><p className="text-sm font-medium">Full-name visibility</p><p className="mt-1 text-xs leading-5 text-[var(--muted)]">Your username always remains public. Your full name is shown to other users only when you choose PUBLIC.</p></div></div>
+          <div className="mt-4 grid gap-2 sm:grid-cols-2">
+            <button type="button" onClick={() => setFullNameVisibility("PUBLIC")} aria-pressed={fullNameVisibility === "PUBLIC"} className={`rounded-xl border px-4 py-3 text-left text-sm ${fullNameVisibility === "PUBLIC" ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-[var(--border)]"}`}>
+              <span className="font-medium">PUBLIC</span><span className="mt-1 block text-xs text-[var(--muted)]">Show your full name on public-facing identity surfaces.</span>
+            </button>
+            <button type="button" onClick={() => setFullNameVisibility("PRIVATE")} aria-pressed={fullNameVisibility === "PRIVATE"} className={`rounded-xl border px-4 py-3 text-left text-sm ${fullNameVisibility === "PRIVATE" ? "border-[var(--primary)] bg-[var(--primary)]/10" : "border-[var(--border)]"}`}>
+              <span className="font-medium">PRIVATE</span><span className="mt-1 block text-xs text-[var(--muted)]">Keep your full name hidden from other users.</span>
+            </button>
+          </div>
         </div>
 
         {error && <div className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
