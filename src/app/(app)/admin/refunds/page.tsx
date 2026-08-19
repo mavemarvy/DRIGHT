@@ -1,0 +1,26 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Clock3, Search, ShieldCheck, XCircle } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+type CaseRow = { id:string; case_id:string; transaction_id:string; reporter_user_id:string; reason_type:string; reason:string; status:string; decision_amount:number|null; decision_currency:string|null; created_at:string; };
+
+export default function AdminRefundsPage(){
+ const supabase=createClient(); const [allowed,setAllowed]=useState(false); const [rows,setRows]=useState<CaseRow[]>([]); const [q,setQ]=useState(""); const [status,setStatus]=useState("all"); const [loading,setLoading]=useState(true); const [error,setError]=useState("");
+ async function load(){
+  setLoading(true); setError(""); const {data:{user}}=await supabase.auth.getUser(); if(!user){window.location.href="/login?next=/admin/refunds";return;}
+  const {data:isAdmin,error:ae}=await supabase.rpc("is_super_admin",{check_user_id:user.id}); if(ae||!isAdmin){setError("You do not have permission to access the Refund & Dispute Review Center.");setLoading(false);return;} setAllowed(true);
+  let query=supabase.from("refund_disputes").select("id,case_id,transaction_id,reporter_user_id,reason_type,reason,status,decision_amount,decision_currency,created_at").order("created_at",{ascending:false}).limit(200);
+  if(status!=="all") query=query.eq("status",status);
+  const {data,error:e}=await query; if(e)setError(e.message); else setRows((data||[]) as CaseRow[]); setLoading(false);
+ }
+ useEffect(()=>{load()},[status]);
+ const filtered=rows.filter(r=>{const s=`${r.case_id} ${r.transaction_id} ${r.reporter_user_id} ${r.reason_type} ${r.reason}`.toLowerCase();return s.includes(q.toLowerCase())});
+ if(error&&!allowed&&!loading)return <div className="mx-auto max-w-xl px-4 py-16 text-center"><ShieldCheck size={38} className="mx-auto"/><h1 className="mt-5 text-2xl font-semibold">Access restricted</h1><p className="mt-3 text-sm text-[var(--muted)]">{error}</p><Link href="/dashboard" className="mt-6 inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold"><ArrowLeft size={16}/> Dashboard</Link></div>;
+ return <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8"><div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Trust, Safety & Finance</p><h1 className="mt-1 text-3xl font-semibold">Refund & Dispute Review Center</h1><p className="mt-2 max-w-2xl text-sm text-[var(--muted)]">Review evidence, vendor responses, appeals and financial resolution requests. Final actions are server-authorized and audited.</p></div><Link href="/dashboard" className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><ArrowLeft size={16}/> Dashboard</Link></div>
+ <div className="mt-6 grid gap-3 md:grid-cols-[1fr_auto]"><label className="flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3"><Search size={17}/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search case, transaction, user or reason…" className="w-full bg-transparent py-3 text-sm outline-none"/></label><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3 text-sm"><option value="all">All statuses</option><option value="open">Open</option><option value="awaiting_vendor">Awaiting vendor</option><option value="awaiting_customer">Awaiting customer</option><option value="appeal_pending">Appeal pending</option><option value="resolved_refund">Refunded</option><option value="resolved_partial_refund">Partial refund</option><option value="resolved_rejected">Rejected</option><option value="closed">Closed</option></select></div>
+ {error&&allowed&&<p className="mt-4 text-sm text-red-600">{error}</p>}
+ <div className="mt-6 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"><div className="grid grid-cols-[1.2fr_1fr_1fr_auto] gap-4 border-b border-[var(--border)] px-5 py-3 text-xs font-semibold uppercase tracking-widest text-[var(--muted)]"><span>Case</span><span>Reason</span><span>Status</span><span></span></div>{loading?<div className="p-8 text-sm text-[var(--muted)]">Loading cases…</div>:filtered.length===0?<div className="p-8 text-sm text-[var(--muted)]">No cases found.</div>:filtered.map(r=><Link key={r.id} href={`/admin/refunds/${r.case_id}`} className="grid grid-cols-[1.2fr_1fr_1fr_auto] gap-4 border-b border-[var(--border)] px-5 py-4 text-sm last:border-0 hover:bg-[var(--background)]"><div><p className="font-semibold">{r.case_id}</p><p className="mt-1 text-xs text-[var(--muted)]">TX {r.transaction_id.slice(0,8)}…</p></div><div><p>{r.reason_type.replaceAll("_"," ")}</p><p className="mt-1 line-clamp-1 text-xs text-[var(--muted)]">{r.reason}</p></div><div className="flex items-center gap-2"><Clock3 size={15}/><span>{r.status.replaceAll("_"," ")}</span></div><span className="text-xs text-[var(--muted)]">Review →</span></Link>)}</div></div>;
+}
