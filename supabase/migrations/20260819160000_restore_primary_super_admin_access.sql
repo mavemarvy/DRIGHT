@@ -1,6 +1,6 @@
 -- Restore the designated DRIGHT primary Super Admin through the existing RBAC model.
--- This is intentionally additive and does not modify Supabase auth's internal is_super_admin flag.
--- Existing users, data, RLS policies, and role IDs are preserved.
+-- Additive only: preserve users, data, role IDs, RLS, Storage and authentication.
+-- Do not modify Supabase Auth's internal is_super_admin flag.
 
 do $$
 declare
@@ -41,30 +41,19 @@ begin
     raise exception 'Unable to resolve super_admin role';
   end if;
 
-  -- A Super Admin receives all currently registered permissions.
+  -- Super Admin receives all currently registered application permissions.
   insert into public.role_permissions (role_id, permission_id, granted_by)
   select v_role_id, p.id, v_user_id
   from public.permissions p
   on conflict (role_id, permission_id) do nothing;
 
-  -- Restore/activate the user's existing assignment if present; otherwise create it.
+  -- Restore/activate the existing assignment if present; otherwise create it.
   insert into public.user_roles (user_id, role_id, assigned_by, status, expires_at)
   values (v_user_id, v_role_id, null, 'active', null)
   on conflict (user_id, role_id) do update
     set status = 'active',
         expires_at = null,
         assigned_at = coalesce(public.user_roles.assigned_at, now());
-
-  -- Ensure the application profile itself is not marked inactive/restricted.
-  update public.profiles
-  set account_status = 'active', updated_at = now()
-  where id = v_user_id
-    and account_status in ('pending', 'restricted');
-
-  update public.user_profiles
-  set profile_status = 'active', updated_at = now()
-  where user_id = v_user_id
-    and profile_status in ('under_review', 'restricted');
 
   insert into public.audit_logs (
     actor_user_id,
