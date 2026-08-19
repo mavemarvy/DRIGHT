@@ -4,6 +4,7 @@ import Link from "next/link";
 import { use, useEffect, useRef, useState } from "react";
 import { ArrowLeft, Send } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import type { RealtimePostgresInsertPayload } from "@supabase/supabase-js";
 
 type Message = { id: string; sender_id: string; body: string; created_at: string; edited_at?: string | null; deleted_at?: string | null };
 type Conversation = { id: string; order_id: string | null; conversation_type: string };
@@ -41,7 +42,12 @@ export default function ConversationPage({ params }: { params: Promise<{ convers
   }, [conversationId]);
 
   useEffect(() => {
-    const channel = supabase.channel(`chat:${conversationId}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new as Message])).subscribe();
+    const channel = supabase
+      .channel(`chat:${conversationId}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` }, (payload: RealtimePostgresInsertPayload<Message>) => {
+        setMessages((current) => current.some((m) => m.id === payload.new.id) ? current : [...current, payload.new]);
+      })
+      .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [conversationId]);
 
