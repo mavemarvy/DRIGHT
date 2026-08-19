@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Bell, BookOpen, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Heart, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getFeatureMap, featureUsable, type Feature } from "@/lib/features";
@@ -27,7 +27,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
   const [features, setFeatures] = useState<Record<string, Feature>>({});
   const router = useRouter();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
 
   useEffect(() => {
     let cancelled = false;
@@ -57,15 +57,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const sidebar = <aside className={`${collapsed ? "w-[76px]" : "w-[260px]"} hidden shrink-0 border-r border-[var(--border)] bg-[var(--surface)] p-4 transition-all lg:flex lg:flex-col`}>
     <div className={`flex h-12 items-center ${collapsed ? "justify-center" : "justify-between"} px-2`}><Link href="/dashboard" className="text-xl font-bold tracking-tight">{collapsed ? "D" : "DRIGHT"}</Link>{!collapsed && <button onClick={() => setCollapsed(true)} className="rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--background)]"><ChevronLeft size={18}/></button>}</div>
     {collapsed && <button onClick={() => setCollapsed(false)} className="mb-4 rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--background)]" title="Expand"><ChevronRight size={18} className="mx-auto"/></button>}
-    <nav className="mt-3 flex-1 space-y-1 overflow-y-auto">
-      <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Main"}</div>
-      {p.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }
-      <div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Your DRIGHT"}</div>
-      {a.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }
-      <div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Build & Earn"}</div>
-      {g.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }
-      {isAdmin && <><div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Administration"}</div><NavItem item={adminItem} collapsed={collapsed}/></>}
-    </nav>
+    <nav className="mt-3 flex-1 space-y-1 overflow-y-auto"><div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Main"}</div>{p.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }<div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Your DRIGHT"}</div>{a.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }<div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Build & Earn"}</div>{g.map(item => <NavItem key={item[1]} item={item} collapsed={collapsed}/>) }{isAdmin && <><div className="mb-2 mt-6 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{!collapsed && "Administration"}</div><NavItem item={adminItem} collapsed={collapsed}/></>}</nav>
     <div className="space-y-1 border-t border-[var(--border)] pt-3"><NavItem item={["Settings","/settings",Settings,null]} collapsed={collapsed}/>{enabled("help") && <NavItem item={["Help","/help",HelpCircle,"help"]} collapsed={collapsed}/>}<button onClick={signOut} title={collapsed ? "Logout" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] ${collapsed ? "justify-center" : ""}`}><LogOut size={18}/><span className={collapsed ? "sr-only" : ""}>Logout</span></button></div>
   </aside>;
 
