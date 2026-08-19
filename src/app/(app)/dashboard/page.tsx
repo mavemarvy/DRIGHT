@@ -39,8 +39,8 @@ export default function DashboardPage() {
 
       const [{ data: p }, orders, favorites, notifications, messages] = await Promise.all([
         supabase.from("profiles").select("username,full_name").eq("id", userId).maybeSingle(),
-        supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", userId),
-        supabase.from("post_saves").select("id", { count: "exact", head: true }).eq("user_id", userId),
+        supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_user_id", userId),
+        supabase.from("post_saves").select("post_id", { count: "exact", head: true }).eq("user_id", userId),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId),
         supabase.from("messages").select("id", { count: "exact", head: true }).eq("sender_user_id", userId),
       ]);
