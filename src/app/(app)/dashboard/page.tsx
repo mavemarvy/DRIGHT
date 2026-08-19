@@ -42,7 +42,7 @@ export default function DashboardPage() {
         supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_id", userId),
         supabase.from("post_saves").select("id", { count: "exact", head: true }).eq("user_id", userId),
         supabase.from("notifications").select("id", { count: "exact", head: true }).eq("user_id", userId),
-        supabase.from("messages").select("id", { count: "exact", head: true }).eq("sender_id", userId),
+        supabase.from("messages").select("id", { count: "exact", head: true }).eq("sender_user_id", userId),
       ]);
 
       setProfile(p ?? { username: null, full_name: null });
