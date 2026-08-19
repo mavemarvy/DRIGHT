@@ -1,7 +1,78 @@
 @import "tailwindcss";
-:root { --background:#fff; --foreground:#111827; --surface:#f8fafc; --border:#e5e7eb; --muted:#64748b; --primary:#111827; }
-.dark { --background:#0b0f14; --foreground:#f8fafc; --surface:#111827; --border:#1f2937; --muted:#94a3b8; --primary:#f8fafc; }
-* { box-sizing:border-box; }
-html,body { min-height:100%; }
-body { margin:0; background:var(--background); color:var(--foreground); font-family:Arial,Helvetica,sans-serif; }
-button,input,textarea,select { font:inherit; }
+
+:root {
+  --background: #ffffff;
+  --foreground: #111827;
+  --surface: #f8fafc;
+  --surface-strong: #ffffff;
+  --border: #e5e7eb;
+  --muted: #64748b;
+  --primary: #111827;
+  --primary-contrast: #ffffff;
+  --focus: #2563eb;
+}
+
+.dark {
+  --background: #0b0f14;
+  --foreground: #f8fafc;
+  --surface: #111827;
+  --surface-strong: #172033;
+  --border: #263244;
+  --muted: #94a3b8;
+  --primary: #f8fafc;
+  --primary-contrast: #0b0f14;
+  --focus: #60a5fa;
+}
+
+.dark-blue {
+  --background: #07111f;
+  --foreground: #eff6ff;
+  --surface: #0d1b2f;
+  --surface-strong: #122641;
+  --border: #1e3a5f;
+  --muted: #9fb5cf;
+  --primary: #dbeafe;
+  --primary-contrast: #07111f;
+  --focus: #60a5fa;
+}
+
+.midnight {
+  --background: #030712;
+  --foreground: #f9fafb;
+  --surface: #0b1020;
+  --surface-strong: #111827;
+  --border: #1f2937;
+  --muted: #9ca3af;
+  --primary: #f9fafb;
+  --primary-contrast: #030712;
+  --focus: #818cf8;
+}
+
+.high-contrast {
+  --background: #000000;
+  --foreground: #ffffff;
+  --surface: #111111;
+  --surface-strong: #1a1a1a;
+  --border: #ffffff;
+  --muted: #f5f5f5;
+  --primary: #ffff00;
+  --primary-contrast: #000000;
+  --focus: #00ffff;
+}
+
+* { box-sizing: border-box; }
+html, body { min-height: 100%; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button, input, textarea, select { font: inherit; }
+button:focus-visible, a:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+option { background: var(--surface-strong); color: var(--foreground); }
