@@ -10,6 +10,7 @@ type Item = { id: string; item_id: string; quantity: number; unit_price: number;
 type Fulfillment = { id: string; fulfillment_id: string; order_item_id: string; status: string; delivery_message?: string | null; delivery_url?: string | null; tracking_reference?: string | null; delivered_at?: string | null };
 type Profile = { username: string; full_name?: string | null; full_name_public?: boolean };
 type NormalizedOrderItem = { item: Item; order: Order | null };
+type NormalizedWithOrder = NormalizedOrderItem & { order: Order };
 
 const nextStatuses: Record<string, { value: string; label: string }[]> = {
   pending: [{ value: "processing", label: "Start processing" }],
@@ -39,17 +40,17 @@ export default function VendorOrderDetailPage({ params }: { params: Promise<{ or
     if (!user) { window.location.href = `/login?next=/vendor/orders/${encodeURIComponent(orderId)}`; return; }
     const { data, error: itemError } = await supabase.from("order_items").select("id,item_id,quantity,unit_price,currency_code,seller_user_id,marketplace_items(public_id,title,item_type),orders(id,order_id,buyer_user_id,status,currency_code,subtotal,platform_fee,task_fee,total,created_at)").eq("seller_user_id", user.id).eq("orders.order_id", orderId);
     if (itemError) { setError(itemError.message); setLoading(false); return; }
-    const normalized: NormalizedOrderItem[] = (data || [])
+    const normalized: NormalizedWithOrder[] = (data || [])
       .map((row: any): NormalizedOrderItem => ({
         item: row as Item,
         order: Array.isArray(row.orders) ? (row.orders[0] ?? null) : (row.orders ?? null),
       }))
-      .filter((x): x is NormalizedOrderItem & { order: Order } => Boolean(x.order));
+      .filter((x: NormalizedOrderItem): x is NormalizedWithOrder => Boolean(x.order));
     if (!normalized.length) { setError("Order not found or you do not have access to it."); setLoading(false); return; }
     const loadedOrder = normalized[0].order;
     setOrder(loadedOrder);
-    setItems(normalized.map((x) => x.item));
-    const itemIds = normalized.map((x) => x.item.id);
+    setItems(normalized.map((x: NormalizedWithOrder) => x.item));
+    const itemIds = normalized.map((x: NormalizedWithOrder) => x.item.id);
     const { data: fRows } = await supabase.from("order_fulfillments").select("id,fulfillment_id,order_item_id,status,delivery_message,delivery_url,tracking_reference,delivered_at").in("order_item_id", itemIds).eq("seller_user_id", user.id);
     setFulfillments((fRows || []) as Fulfillment[]);
     if (loadedOrder.buyer_user_id) {
