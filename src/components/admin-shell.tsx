@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, ListChecks, LogOut, Menu, Megaphone, Search, Settings, ShieldCheck, Users, X, FileEdit, Gavel, UserCog, Palette, ClipboardList } from "lucide-react";
+import { ChevronLeft, ChevronRight, DollarSign, FileText, Gift, LayoutDashboard, ListChecks, LogOut, Menu, Megaphone, Search, Settings, ShieldCheck, Users, X, FileEdit, Gavel, UserCog, Palette, ClipboardList } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type NavItem = readonly [string, string, any, string];
@@ -17,6 +17,7 @@ const nav: NavItem[] = [
   ["Themes", "/admin/themes", Palette, "themes.manage"],
   ["Audit Log", "/admin/audit", ClipboardList, "audit.view"],
   ["Promotions & Advertising", "/admin/promotions", Megaphone, "promotions.manage"],
+  ["Coupons & Rewards", "/admin/rewards", Gift, "promotions.manage"],
   ["Feature Control", "/admin/features", Settings, "features.manage"],
   ["ID Lookup", "/admin/ids", Search, "admin.dashboard.view"],
   ["Finance", "/admin/finance", DollarSign, "finance.manage"],
