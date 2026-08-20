@@ -18,7 +18,7 @@ export default function GenAIPage() {
     if (!value || loading) return;
     setError("");
     setInput("");
-    setMessages(current => [...current, { role: "user", content: value }]);
+    setMessages((current) => [...current, { role: "user", content: value }]);
     setLoading(true);
     try {
       const res = await fetch("/api/ai/chat", {
@@ -29,7 +29,10 @@ export default function GenAIPage() {
       const data: { conversationId?: string; messageId?: string; response?: string; error?: string } = await res.json();
       if (!res.ok) throw new Error(data.error || "AI request failed");
       setConversationId(data.conversationId || conversationId);
-      setMessages(current => [...current, { id: data.messageId, role: "assistant", content: data.response || "" }]);
+      setMessages((current) => [
+        ...current,
+        { id: data.messageId, role: "assistant", content: data.response || "" },
+      ]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "AI request failed");
     } finally {
@@ -55,10 +58,15 @@ export default function GenAIPage() {
     <main className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-5xl flex-col px-4 py-6 sm:px-6 lg:px-8">
       <div className="mb-5 flex flex-col gap-4 rounded-3xl border border-[var(--border)] bg-[var(--surface)] p-5 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex items-center gap-3">
-          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--primary)] text-[var(--primary-contrast)]"><Sparkles size={21} /></div>
-          <div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">DRIGHT Gen.ai</p><h1 className="text-xl font-semibold">Your DRIGHT AI assistant</h1></div>
+          <div className="grid h-11 w-11 place-items-center rounded-2xl bg-[var(--primary)] text-[var(--primary-contrast)]">
+            <Sparkles size={21} />
+          </div>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">DRIGHT Gen.ai</p>
+            <h1 className="text-xl font-semibold">Your DRIGHT AI assistant</h1>
+          </div>
         </div>
-        <select value={task} onChange={event => setTask(event.target.value)} className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none">
+        <select value={task} onChange={(event) => setTask(event.target.value)} className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2 text-sm outline-none">
           <option value="assistant">General assistant</option>
           <option value="support">Customer support</option>
           <option value="search">Marketplace search</option>
@@ -74,7 +82,9 @@ export default function GenAIPage() {
             <div className="max-w-xl">
               <Bot size={38} className="mx-auto mb-5" />
               <h2 className="text-2xl font-semibold">Ask DRIGHT anything</h2>
-              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">I can help with marketplace discovery, orders, support, vendor and affiliate workflows, creator ideas and other authorized DRIGHT tasks.</p>
+              <p className="mt-3 text-sm leading-6 text-[var(--muted)]">
+                I can help with marketplace discovery, orders, support, vendor and affiliate workflows, creator ideas and other authorized DRIGHT tasks.
+              </p>
               <div className="mt-6 flex flex-wrap justify-center gap-2">
                 <button type="button" onClick={() => setInput("Help me find a product for my business")} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm">Find a product</button>
                 <button type="button" onClick={() => setInput("Explain my recent order")} className="rounded-full border border-[var(--border)] px-4 py-2 text-sm">Explain an order</button>
@@ -105,7 +115,7 @@ export default function GenAIPage() {
       </section>
 
       <form onSubmit={submit} className="mt-4 flex items-end gap-2 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-2">
-        <textarea value={input} onChange={event => setInput(event.target.value)} onKeyDown={event => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Ask DRIGHT AI…" rows={2} maxLength={12000} className="min-h-12 flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none" />
+        <textarea value={input} onChange={(event) => setInput(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter" && !event.shiftKey) { event.preventDefault(); void sendMessage(); } }} placeholder="Ask DRIGHT AI…" rows={2} maxLength={12000} className="min-h-12 flex-1 resize-none bg-transparent px-3 py-2 text-sm outline-none" />
         <button type="submit" disabled={loading || !input.trim()} className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-[var(--primary)] text-[var(--primary-contrast)] disabled:opacity-40" aria-label="Send"><Send size={17} /></button>
       </form>
     </main>
