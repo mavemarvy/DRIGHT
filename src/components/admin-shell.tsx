@@ -3,13 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, ListChecks, LogOut, Menu, Megaphone, Search, Settings, ShieldCheck, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, DollarSign, FileText, Gift, LayoutDashboard, ListChecks, LogOut, Menu, Megaphone, Search, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const nav = [
   ["Overview", "/admin", LayoutDashboard],
   ["Listings & Reviews", "/admin/listings", ListChecks],
   ["Promotions & Advertising", "/admin/promotions", Megaphone],
+  ["Coupons & Rewards", "/admin/rewards", Gift],
   ["Feature Control", "/admin/features", Settings],
   ["ID Lookup", "/admin/ids", Search],
   ["Finance", "/admin/finance", DollarSign],
