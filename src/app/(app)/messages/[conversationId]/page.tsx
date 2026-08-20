@@ -2,211 +2,40 @@
 
 import Link from "next/link";
 import { use, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, Check, CheckCheck, Edit3, FileText, Image as ImageIcon, MoreVertical, Paperclip, Pencil, Pin, Reply, Search, Send, Smile, Trash2, X } from "lucide-react";
+import { ArrowLeft, Check, CheckCheck, Edit3, FileText, Paperclip, Pencil, Reply, Search, Send, Smile, Trash2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Message = {
-  id: string;
-  public_id?: string;
-  sender_id: string;
-  body: string;
-  created_at: string;
-  edited_at?: string | null;
-  deleted_at?: string | null;
-  message_type?: string;
-  message_status?: string;
-  reply_to_message_id?: string | null;
-  metadata?: Record<string, unknown> | null;
-  moderation_status?: string;
-};
-
-type Conversation = {
-  id: string;
-  public_id?: string;
-  order_id: string | null;
-  conversation_type: string;
-  status?: string;
-  last_message_at?: string | null;
-};
-
+type Message = { id: string; public_id?: string; sender_id: string; body: string; created_at: string; edited_at?: string | null; deleted_at?: string | null; message_type?: string; message_status?: string; reply_to_message_id?: string | null; moderation_status?: string };
+type Conversation = { id: string; public_id?: string; order_id: string | null; conversation_type: string; status?: string; last_message_at?: string | null };
 type Attachment = { id: string; message_id: string; storage_bucket: string; storage_path: string; mime_type: string; original_filename: string | null; media_type: string; byte_size: number };
-
 const PAGE_SIZE = 50;
 
 export default function ConversationPage({ params }: { params: Promise<{ conversationId: string }> }) {
-  const { conversationId } = use(params);
-  const supabase = useMemo(() => createClient(), []);
-  const [userId, setUserId] = useState("");
-  const [conversation, setConversation] = useState<Conversation | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [attachments, setAttachments] = useState<Record<string, Attachment[]>>({});
-  const [body, setBody] = useState("");
-  const [query, setQuery] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [error, setError] = useState("");
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
-  const [replyTo, setReplyTo] = useState<Message | null>(null);
-  const [editing, setEditing] = useState<Message | null>(null);
-  const [showSearch, setShowSearch] = useState(false);
-  const bottom = useRef<HTMLDivElement>(null);
-  const list = useRef<HTMLDivElement>(null);
-  const typingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const { conversationId } = use(params); const supabase = useMemo(() => createClient(), []);
+  const [userId,setUserId]=useState(""); const [conversation,setConversation]=useState<Conversation|null>(null); const [messages,setMessages]=useState<Message[]>([]); const [attachments,setAttachments]=useState<Record<string,Attachment[]>>({}); const [body,setBody]=useState(""); const [query,setQuery]=useState(""); const [loading,setLoading]=useState(true); const [loadingMore,setLoadingMore]=useState(false); const [sending,setSending]=useState(false); const [uploading,setUploading]=useState(false); const [error,setError]=useState(""); const [typing,setTyping]=useState(false); const [replyTo,setReplyTo]=useState<Message|null>(null); const [editing,setEditing]=useState<Message|null>(null); const [showSearch,setShowSearch]=useState(false); const bottom=useRef<HTMLDivElement>(null); const typingTimer=useRef<ReturnType<typeof setTimeout>|null>(null);
 
-  async function markRead(uid: string) {
-    await supabase.from("chat_participants").update({ last_read_at: new Date().toISOString() }).eq("conversation_id", conversationId).eq("user_id", uid);
+  async function markRead(uid:string){ await supabase.from("chat_participants").update({last_read_at:new Date().toISOString()}).eq("conversation_id",conversationId).eq("user_id",uid); }
+  async function load(initial=true){
+    if(initial)setLoading(true);else setLoadingMore(true);setError(""); const {data:{user}}=await supabase.auth.getUser();
+    if(!user){window.location.href=`/login?next=/messages/${encodeURIComponent(conversationId)}`;return;} setUserId(user.id);
+    const {data:member}=await supabase.from("chat_participants").select("conversation_id").eq("conversation_id",conversationId).eq("user_id",user.id).maybeSingle();
+    if(!member){setError("Conversation not found or access is not permitted.");setLoading(false);setLoadingMore(false);return;}
+    const {data:c,error:ce}=await supabase.from("chat_conversations").select("id,public_id,order_id,conversation_type,status,last_message_at").eq("id",conversationId).maybeSingle();
+    if(ce||!c){setError(ce?.message||"Conversation not found.");setLoading(false);setLoadingMore(false);return;} setConversation(c as Conversation);
+    const offset=initial?0:messages.length; const {data:m,error:me}=await supabase.from("chat_messages").select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,moderation_status").eq("conversation_id",conversationId).order("created_at",{ascending:false}).range(offset,offset+PAGE_SIZE-1);
+    if(me)setError(me.message);else if(m)setMessages(current=>initial?(m as Message[]).reverse():[...(m as Message[]).reverse(),...current]); await markRead(user.id);setLoading(false);setLoadingMore(false);
   }
-
-  async function load(initial = true) {
-    if (initial) setLoading(true); else setLoadingMore(true);
-    setError("");
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { window.location.href = `/login?next=/messages/${encodeURIComponent(conversationId)}`; return; }
-    setUserId(user.id);
-    const { data: member } = await supabase.from("chat_participants").select("conversation_id,last_read_at").eq("conversation_id", conversationId).eq("user_id", user.id).maybeSingle();
-    if (!member) { setError("Conversation not found or access is not permitted."); setLoading(false); setLoadingMore(false); return; }
-    const { data: c, error: conversationError } = await supabase.from("chat_conversations").select("id,public_id,order_id,conversation_type,status,last_message_at").eq("id", conversationId).maybeSingle();
-    if (conversationError || !c) { setError(conversationError?.message || "Conversation not found."); setLoading(false); setLoadingMore(false); return; }
-    setConversation(c as Conversation);
-    const offset = initial ? 0 : messages.length;
-    const { data: m, error: messageError } = await supabase.from("chat_messages").select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,metadata,moderation_status").eq("conversation_id", conversationId).order("created_at", { ascending: false }).range(offset, offset + PAGE_SIZE - 1);
-    if (messageError) setError(messageError.message);
-    else if (m) setMessages((current) => initial ? (m as Message[]).reverse() : [...(m as Message[]).reverse(), ...current]);
-    await markRead(user.id);
-    setLoading(false); setLoadingMore(false);
-  }
-
-  useEffect(() => { void load(); }, [conversationId]);
-
-  useEffect(() => {
-    const channel = supabase.channel(`chat:${conversationId}`)
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        const next = payload.new as Message;
-        setMessages((current) => current.some((m) => m.id === next.id) ? current : [...current, next]);
-        if (next.sender_id !== userId) void markRead(userId);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "chat_messages", filter: `conversation_id=eq.${conversationId}` }, (payload) => {
-        const next = payload.new as Message;
-        setMessages((current) => current.map((m) => m.id === next.id ? next : m));
-      })
-      .on("broadcast", { event: "typing" }, ({ payload }) => {
-        if (payload?.userId === userId) return;
-        setTypingUsers((current) => current.includes(String(payload?.userId)) ? current : [...current, String(payload?.userId)]);
-        window.setTimeout(() => setTypingUsers((current) => current.filter((id) => id !== String(payload?.userId))), 2500);
-      })
-      .subscribe();
-    return () => { void supabase.removeChannel(channel); };
-  }, [conversationId, supabase, userId]);
-
-  useEffect(() => { if (loading) return; bottom.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
-
-  function broadcastTyping() {
-    if (!userId) return;
-    const channel = supabase.channel(`chat:${conversationId}`);
-    void channel.send({ type: "broadcast", event: "typing", payload: { userId } });
-    if (typingTimer.current) clearTimeout(typingTimer.current);
-    typingTimer.current = setTimeout(() => { void supabase.removeChannel(channel); }, 1200);
-  }
-
-  async function sendMessage(e?: React.FormEvent) {
-    e?.preventDefault();
-    const text = body.trim();
-    if (!text || sending || !userId) return;
-    setSending(true); setError("");
-    const payload = { conversation_id: conversationId, sender_id: userId, body: text, message_type: "text", message_status: "sent", reply_to_message_id: replyTo?.id || null };
-    const { data, error: sendError } = await supabase.from("chat_messages").insert(payload).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,metadata,moderation_status").single();
-    if (sendError) setError(sendError.message); else if (data) setMessages((current) => current.some((m) => m.id === data.id) ? current : [...current, data as Message]);
-    if (!sendError) { setBody(""); setReplyTo(null); }
-    setSending(false);
-  }
-
-  async function saveEdit() {
-    if (!editing || !body.trim()) return;
-    const { data, error: editError } = await supabase.from("chat_messages").update({ body: body.trim(), edited_at: new Date().toISOString() }).eq("id", editing.id).eq("sender_id", userId).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,metadata,moderation_status").single();
-    if (editError) setError(editError.message); else if (data) { setMessages((current) => current.map((m) => m.id === data.id ? data as Message : m)); setEditing(null); setBody(""); }
-  }
-
-  async function deleteMessage(message: Message) {
-    const { error: deleteError } = await supabase.from("chat_messages").update({ deleted_at: new Date().toISOString(), message_status: "deleted", body: "This message was deleted." }).eq("id", message.id).eq("sender_id", userId);
-    if (deleteError) setError(deleteError.message); else setMessages((current) => current.map((m) => m.id === message.id ? { ...m, deleted_at: new Date().toISOString(), message_status: "deleted", body: "This message was deleted." } : m));
-  }
-
-  async function react(messageId: string, reactionType = "like") {
-    const { error: reactionError } = await supabase.from("chat_message_reactions").upsert({ message_id: messageId, user_id: userId, reaction_type: reactionType });
-    if (reactionError) setError(reactionError.message);
-  }
-
-  async function handleAttachment(file: File) {
-    if (!userId || uploading || file.size > 25 * 1024 * 1024) { if (file.size > 25 * 1024 * 1024) setError("Attachments are limited to 25 MB."); return; }
-    const allowed = ["image/", "video/", "audio/", "application/pdf", "text/plain", "application/zip", "application/vnd.openxmlformats-officedocument."];
-    if (!allowed.some((prefix) => file.type.startsWith(prefix) || file.type === prefix)) { setError("This file type is not supported."); return; }
-    setUploading(true); setError("");
-    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
-    const path = `${userId}/${conversationId}/${crypto.randomUUID()}-${safeName}`;
-    const { error: uploadError } = await supabase.storage.from("message-attachments").upload(path, file, { contentType: file.type, upsert: false });
-    if (uploadError) { setError(uploadError.message); setUploading(false); return; }
-    const type = file.type.startsWith("image/") ? "image" : file.type.startsWith("video/") ? "video" : file.type.startsWith("audio/") ? "audio" : "document";
-    const { data: message, error: messageError } = await supabase.from("chat_messages").insert({ conversation_id: conversationId, sender_id: userId, body: `Attachment: ${file.name}`, message_type: type, message_status: "sent", metadata: { attachment_name: file.name } }).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,metadata,moderation_status").single();
-    if (messageError || !message) { await supabase.storage.from("message-attachments").remove([path]); setError(messageError?.message || "Unable to create attachment message."); setUploading(false); return; }
-    const { data: attachment, error: attachmentError } = await supabase.from("chat_message_attachments").insert({ message_id: message.id, uploader_user_id: userId, storage_bucket: "message-attachments", storage_path: path, mime_type: file.type || "application/octet-stream", original_filename: file.name, media_type: type, byte_size: file.size }).select("id,message_id,storage_bucket,storage_path,mime_type,original_filename,media_type,byte_size").single();
-    if (attachmentError) setError(attachmentError.message); else if (attachment) setAttachments((current) => ({ ...current, [message.id]: [attachment as Attachment] }));
-    setMessages((current) => current.some((m) => m.id === message.id) ? current : [...current, message as Message]);
-    setUploading(false);
-  }
-
-  const visibleMessages = messages.filter((m) => !query || m.body.toLowerCase().includes(query.toLowerCase()));
-
-  return <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-2 py-3 sm:px-4 sm:py-5 lg:px-6">
-    <div className="flex items-center justify-between gap-3 px-2">
-      <Link href="/messages" className="inline-flex items-center gap-2 text-sm font-medium text-[var(--muted)]"><ArrowLeft size={16}/> Messages</Link>
-      <button onClick={() => setShowSearch((v) => !v)} className="rounded-xl p-2 text-[var(--muted)] hover:bg-[var(--surface)]" aria-label="Search messages"><Search size={18}/></button>
-    </div>
-    <div className="mt-3 flex min-h-[78vh] flex-1 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
-      <section className="flex min-w-0 flex-1 flex-col">
-        <header className="border-b border-[var(--border)] p-4 sm:p-5">
-          <div className="flex items-center justify-between gap-3"><div><p className="text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">{conversation?.conversation_type || "Conversation"}</p><h1 className="mt-1 truncate text-lg font-semibold">{conversation?.order_id ? `Order ${conversation.order_id}` : conversation?.conversation_type === "support" ? "DRIGHT Support" : conversation?.public_id || "Conversation"}</h1></div><span className="rounded-full border border-[var(--border)] px-2 py-1 text-[10px] text-[var(--muted)]">{conversation?.status || "active"}</span></div>
-          {showSearch && <div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2"><Search size={16}/><input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search this conversation…" className="min-w-0 flex-1 bg-transparent text-sm outline-none"/></div>}
-        </header>
-        <div ref={list} className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-5">
-          {messages.length >= PAGE_SIZE && <button onClick={() => void load(false)} disabled={loadingMore} className="mx-auto block rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">{loadingMore ? "Loading…" : "Load older messages"}</button>}
-          {loading ? <div className="h-48 animate-pulse rounded-xl bg-[var(--background)]"/> : visibleMessages.length ? visibleMessages.map((m) => {
-            const mine = m.sender_id === userId;
-            const deleted = Boolean(m.deleted_at) || m.message_status === "deleted";
-            const reply = m.reply_to_message_id ? messages.find((x) => x.id === m.reply_to_message_id) : null;
-            return <div key={m.id} className={`group flex ${mine ? "justify-end" : "justify-start"}`}><div className="max-w-[88%] sm:max-w-[75%]">
-              {reply && <div className="mb-1 rounded-xl border border-[var(--border)] px-3 py-2 text-[11px] text-[var(--muted)]">Replying to: {reply.body.slice(0, 100)}</div>}
-              <div className={`rounded-2xl px-4 py-3 text-sm ${mine ? "bg-[var(--primary)] text-[var(--primary-contrast)]" : "border border-[var(--border)]"}`}>
-                <p className={`whitespace-pre-wrap break-words ${deleted ? "italic opacity-60" : ""}`}>{m.body}</p>
-                <div className="mt-2 flex items-center justify-end gap-2 text-[10px] opacity-60"><span>{new Date(m.created_at).toLocaleString()}</span>{m.edited_at && !deleted && <span>edited</span>}{mine && (m.message_status === "read" ? <CheckCheck size={13}/> : <Check size={13}/>)}</div>
-              </div>
-              {!deleted && <div className={`mt-1 hidden items-center gap-1 text-[var(--muted)] group-hover:flex ${mine ? "justify-end" : ""}`}>
-                <button onClick={() => setReplyTo(m)} title="Reply" className="rounded-lg p-1.5 hover:bg-[var(--background)]"><Reply size={13}/></button><button onClick={() => void react(m.id)} title="React" className="rounded-lg p-1.5 hover:bg-[var(--background)]"><Smile size={13}/></button>{mine && <><button onClick={() => { setEditing(m); setBody(m.body); }} title="Edit" className="rounded-lg p-1.5 hover:bg-[var(--background)]"><Pencil size={13}/></button><button onClick={() => void deleteMessage(m)} title="Delete" className="rounded-lg p-1.5 hover:bg-[var(--background)]"><Trash2 size={13}/></button></>}
-              </div>}
-              {attachments[m.id]?.map((a) => <AttachmentPreview key={a.id} attachment={a} supabase={supabase}/>) }
-            </div></div>;
-          }) : <div className="grid h-full place-items-center py-20 text-center text-sm text-[var(--muted)]">No messages yet. Send the first message.</div>}
-          {typingUsers.length > 0 && <p className="text-xs italic text-[var(--muted)]">Someone is typing…</p>}
-          <div ref={bottom}/>
-        </div>
-        {error && <div className="border-t border-red-500/20 bg-red-500/5 px-4 py-2 text-xs text-red-600">{error}</div>}
-        {(replyTo || editing) && <div className="flex items-center gap-2 border-t border-[var(--border)] px-4 py-2 text-xs text-[var(--muted)]"><span className="min-w-0 flex-1 truncate">{editing ? `Editing: ${editing.body}` : `Replying to: ${replyTo?.body}`}</span><button onClick={() => { setReplyTo(null); setEditing(null); setBody(""); }}><X size={15}/></button></div>}
-        <form onSubmit={(e) => void (editing ? saveEdit() : sendMessage(e))} className="flex items-end gap-2 border-t border-[var(--border)] p-3 sm:p-4">
-          <label className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--border)] text-[var(--muted)] hover:bg-[var(--background)]" title="Attach file"><Paperclip size={18}/><input type="file" className="hidden" disabled={uploading} onChange={(e) => { const file = e.target.files?.[0]; if (file) void handleAttachment(file); e.currentTarget.value = ""; }}/></label>
-          <textarea value={body} onChange={(e) => { setBody(e.target.value); broadcastTyping(); }} onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void (editing ? saveEdit() : sendMessage()); } }} rows={1} maxLength={10000} placeholder={editing ? "Edit message…" : replyTo ? "Write a reply…" : "Write a message…"} className="min-w-0 flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-sm outline-none"/>
-          <button disabled={sending || uploading || !body.trim()} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold disabled:opacity-50">{editing ? <Edit3 size={16}/> : <Send size={16}/>}<span className="hidden sm:inline">{editing ? "Save" : sending ? "Sending" : uploading ? "Uploading" : "Send"}</span></button>
-        </form>
-      </section>
-      <aside className="hidden w-72 shrink-0 border-l border-[var(--border)] p-5 xl:block"><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Communication</p><h2 className="mt-2 font-semibold">Conversation details</h2><dl className="mt-5 space-y-4 text-sm"><div><dt className="text-xs text-[var(--muted)]">Conversation ID</dt><dd className="mt-1 break-all">{conversation?.public_id || conversationId}</dd></div><div><dt className="text-xs text-[var(--muted)]">Type</dt><dd className="mt-1 capitalize">{conversation?.conversation_type || "direct"}</dd></div>{conversation?.order_id && <div><dt className="text-xs text-[var(--muted)]">Order</dt><dd className="mt-1">{conversation.order_id}</dd></div>}</dl></aside>
-    </div>
-  </div>;
+  useEffect(()=>{void load();},[conversationId]);
+  useEffect(()=>{const channel=supabase.channel(`chat:${conversationId}`).on("postgres_changes",{event:"INSERT",schema:"public",table:"chat_messages",filter:`conversation_id=eq.${conversationId}`},payload=>{const next=payload.new as Message;setMessages(current=>current.some(m=>m.id===next.id)?current:[...current,next]);if(next.sender_id!==userId&&userId)void markRead(userId);}).on("postgres_changes",{event:"UPDATE",schema:"public",table:"chat_messages",filter:`conversation_id=eq.${conversationId}`},payload=>{const next=payload.new as Message;setMessages(current=>current.map(m=>m.id===next.id?next:m));}).on("broadcast",{event:"typing"},({payload})=>{if(payload?.userId===userId)return;setTyping(Boolean(payload?.active));}).subscribe();return()=>{void supabase.removeChannel(channel);};},[conversationId,supabase,userId]);
+  useEffect(()=>{if(!loading)bottom.current?.scrollIntoView({behavior:"smooth"});},[messages,loading]);
+  function broadcastTyping(active=true){if(!userId)return;const channel=supabase.channel(`chat:${conversationId}`);void channel.send({type:"broadcast",event:"typing",payload:{userId,active}});if(typingTimer.current)clearTimeout(typingTimer.current);typingTimer.current=setTimeout(()=>{void channel.send({type:"broadcast",event:"typing",payload:{userId,active:false}});},1800);}
+  async function sendMessage(e?:React.FormEvent){e?.preventDefault();const text=body.trim();if(!text||sending||!userId)return;setSending(true);const {data,error:e1}=await supabase.from("chat_messages").insert({conversation_id:conversationId,sender_id:userId,body:text,message_type:"text",message_status:"sent",reply_to_message_id:replyTo?.id||null}).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,moderation_status").single();if(e1)setError(e1.message);else{if(data)setMessages(current=>current.some(m=>m.id===data.id)?current:[...current,data as Message]);setBody("");setReplyTo(null);broadcastTyping(false);}setSending(false);}
+  async function saveEdit(){if(!editing||!body.trim())return;const {data,error:e1}=await supabase.from("chat_messages").update({body:body.trim(),edited_at:new Date().toISOString()}).eq("id",editing.id).eq("sender_id",userId).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,moderation_status").single();if(e1)setError(e1.message);else if(data){setMessages(current=>current.map(m=>m.id===data.id?data as Message:m));setEditing(null);setBody("");}}
+  async function deleteMessage(message:Message){const {error:e1}=await supabase.from("chat_messages").update({deleted_at:new Date().toISOString(),message_status:"deleted",body:"This message was deleted."}).eq("id",message.id).eq("sender_id",userId);if(e1)setError(e1.message);}
+  async function react(messageId:string){const {error:e1}=await supabase.from("chat_message_reactions").upsert({message_id:messageId,user_id:userId,reaction_type:"like"});if(e1)setError(e1.message);}
+  async function handleAttachment(file:File){if(!userId||uploading)return;if(file.size>25*1024*1024){setError("Attachments are limited to 25 MB.");return;}const allowed=["image/","video/","audio/","application/pdf","text/plain"];if(!allowed.some(x=>file.type.startsWith(x))){setError("This file type is not supported.");return;}setUploading(true);const safe=file.name.replace(/[^a-zA-Z0-9._-]/g,"_");const path=`${userId}/${conversationId}/${crypto.randomUUID()}-${safe}`;const {error:ue}=await supabase.storage.from("message-attachments").upload(path,file,{contentType:file.type,upsert:false});if(ue){setError(ue.message);setUploading(false);return;}const type=file.type.startsWith("image/")?"image":file.type.startsWith("video/")?"video":file.type.startsWith("audio/")?"audio":"document";const {data:m,error:me}=await supabase.from("chat_messages").insert({conversation_id:conversationId,sender_id:userId,body:`Attachment: ${file.name}`,message_type:type,message_status:"sent"}).select("id,public_id,sender_id,body,created_at,edited_at,deleted_at,message_type,message_status,reply_to_message_id,moderation_status").single();if(me||!m){await supabase.storage.from("message-attachments").remove([path]);setError(me?.message||"Unable to create attachment message.");setUploading(false);return;}const {data:a,error:ae}=await supabase.from("chat_message_attachments").insert({message_id:m.id,uploader_user_id:userId,storage_bucket:"message-attachments",storage_path:path,mime_type:file.type||"application/octet-stream",original_filename:file.name,media_type:type,byte_size:file.size}).select("id,message_id,storage_bucket,storage_path,mime_type,original_filename,media_type,byte_size").single();if(ae)setError(ae.message);else if(a)setAttachments(current=>({...current,[m.id]:[a as Attachment]}));setMessages(current=>current.some(x=>x.id===m.id)?current:[...current,m as Message]);setUploading(false);}
+  const visible=messages.filter(m=>!query||m.body.toLowerCase().includes(query.toLowerCase()));
+  return <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col px-2 py-3 sm:px-4 sm:py-5 lg:px-6"><div className="flex items-center justify-between px-2"><Link href="/messages" className="inline-flex items-center gap-2 text-sm text-[var(--muted)]"><ArrowLeft size={16}/> Messages</Link><button onClick={()=>setShowSearch(v=>!v)} className="rounded-xl p-2 text-[var(--muted)]" aria-label="Search messages"><Search size={18}/></button></div><div className="mt-3 flex min-h-[78vh] flex-1 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]"><section className="flex min-w-0 flex-1 flex-col"><header className="border-b border-[var(--border)] p-4"><p className="text-[10px] uppercase tracking-widest text-[var(--muted)]">{conversation?.conversation_type||"Conversation"}</p><h1 className="mt-1 truncate text-lg font-semibold">{conversation?.order_id?`Order ${conversation.order_id}`:conversation?.conversation_type==="support"?"DRIGHT Support":conversation?.public_id||"Conversation"}</h1>{showSearch&&<div className="mt-3 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2"><Search size={16}/><input autoFocus value={query} onChange={e=>setQuery(e.target.value)} placeholder="Search this conversation…" className="min-w-0 flex-1 bg-transparent text-sm outline-none"/></div>}</header><div className="flex-1 space-y-3 overflow-y-auto p-3 sm:p-5">{messages.length>=PAGE_SIZE&&<button onClick={()=>void load(false)} disabled={loadingMore} className="mx-auto block rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]">{loadingMore?"Loading…":"Load older messages"}</button>}{loading?<div className="h-48 animate-pulse rounded-xl bg-[var(--background)]"/>:visible.length?visible.map(m=>{const mine=m.sender_id===userId;const deleted=Boolean(m.deleted_at)||m.message_status==="deleted";const reply=m.reply_to_message_id?messages.find(x=>x.id===m.reply_to_message_id):null;return <div key={m.id} className={`group flex ${mine?"justify-end":"justify-start"}`}><div className="max-w-[88%] sm:max-w-[75%]">{reply&&<div className="mb-1 rounded-xl border border-[var(--border)] px-3 py-2 text-[11px] text-[var(--muted)]">Replying to: {reply.body.slice(0,100)}</div>}<div className={`rounded-2xl px-4 py-3 text-sm ${mine?"bg-[var(--primary)] text-[var(--primary-contrast)]":"border border-[var(--border)]"}`}><p className={`whitespace-pre-wrap break-words ${deleted?"italic opacity-60":""}`}>{m.body}</p><div className="mt-2 flex justify-end gap-2 text-[10px] opacity-60"><span>{new Date(m.created_at).toLocaleString()}</span>{m.edited_at&&<span>edited</span>}{mine&&(m.message_status==="read"?<CheckCheck size={13}/>:<Check size={13}/>)}</div></div>{!deleted&&<div className="mt-1 hidden items-center gap-1 text-[var(--muted)] group-hover:flex"><button onClick={()=>setReplyTo(m)} title="Reply" className="rounded-lg p-1.5"><Reply size={13}/></button><button onClick={()=>void react(m.id)} title="React" className="rounded-lg p-1.5"><Smile size={13}/></button>{mine&&<><button onClick={()=>{setEditing(m);setBody(m.body);}} title="Edit" className="rounded-lg p-1.5"><Pencil size={13}/></button><button onClick={()=>void deleteMessage(m)} title="Delete" className="rounded-lg p-1.5"><Trash2 size={13}/></button></>}</div>}{attachments[m.id]?.map(a=><AttachmentPreview key={a.id} attachment={a} supabase={supabase}/>)}</div></div>}) : <div className="grid h-full place-items-center py-20 text-center text-sm text-[var(--muted)]">No messages yet. Send the first message.</div>}{typing&&<p className="text-xs italic text-[var(--muted)]">Someone is typing…</p>}<div ref={bottom}/></div>{error&&<div className="border-t border-red-500/20 px-4 py-2 text-xs text-red-600">{error}</div>}{(replyTo||editing)&&<div className="flex items-center gap-2 border-t border-[var(--border)] px-4 py-2 text-xs text-[var(--muted)]"><span className="min-w-0 flex-1 truncate">{editing?`Editing: ${editing.body}`:`Replying to: ${replyTo?.body}`}</span><button onClick={()=>{setReplyTo(null);setEditing(null);setBody("");}}><X size={15}/></button></div>}<form onSubmit={e=>void(editing?saveEdit():sendMessage(e))} className="flex items-end gap-2 border-t border-[var(--border)] p-3"><label className="grid h-11 w-11 shrink-0 cursor-pointer place-items-center rounded-xl border border-[var(--border)] text-[var(--muted)]"><Paperclip size={18}/><input type="file" className="hidden" disabled={uploading} onChange={e=>{const f=e.target.files?.[0];if(f)void handleAttachment(f);e.currentTarget.value="";}}/></label><textarea value={body} onChange={e=>{setBody(e.target.value);broadcastTyping(true);}} onKeyDown={e=>{if(e.key==="Enter"&&!e.shiftKey){e.preventDefault();void(editing?saveEdit():sendMessage());}}} rows={1} maxLength={10000} placeholder={editing?"Edit message…":replyTo?"Write a reply…":"Write a message…"} className="min-w-0 flex-1 resize-none rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-3 text-sm outline-none"/><button disabled={sending||uploading||!body.trim()} className="inline-flex h-11 items-center gap-2 rounded-xl bg-[var(--primary)] px-4 text-sm font-semibold disabled:opacity-50">{editing?<Edit3 size={16}/>:<Send size={16}/>}<span className="hidden sm:inline">{editing?"Save":sending?"Sending":uploading?"Uploading":"Send"}</span></button></form></section><aside className="hidden w-72 shrink-0 border-l border-[var(--border)] p-5 xl:block"><p className="text-xs uppercase tracking-widest text-[var(--muted)]">Communication</p><h2 className="mt-2 font-semibold">Conversation details</h2><dl className="mt-5 space-y-4 text-sm"><div><dt className="text-xs text-[var(--muted)]">Conversation ID</dt><dd className="mt-1 break-all">{conversation?.public_id||conversationId}</dd></div><div><dt className="text-xs text-[var(--muted)]">Type</dt><dd className="mt-1 capitalize">{conversation?.conversation_type||"direct"}</dd></div></dl></aside></div></div>;
 }
 
-function AttachmentPreview({ attachment, supabase }: { attachment: Attachment; supabase: ReturnType<typeof createClient> }) {
-  const [url, setUrl] = useState("");
-  useEffect(() => { let active = true; void supabase.storage.from(attachment.storage_bucket).createSignedUrl(attachment.storage_path, 300).then(({ data }) => { if (active && data?.signedUrl) setUrl(data.signedUrl); }); return () => { active = false; }; }, [attachment, supabase]);
-  if (!url) return <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]"><FileText size={15}/>{attachment.original_filename || "Attachment"}</div>;
-  if (attachment.media_type === "image") return <a href={url} target="_blank" rel="noreferrer" className="mt-2 block overflow-hidden rounded-xl"><img src={url} alt={attachment.original_filename || "Message attachment"} className="max-h-80 max-w-full object-contain" /></a>;
-  return <a href={url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs hover:bg-[var(--background)]"><FileText size={15}/>{attachment.original_filename || "Open attachment"}</a>;
-}
+function AttachmentPreview({attachment,supabase}:{attachment:Attachment;supabase:ReturnType<typeof createClient>}){const [url,setUrl]=useState("");useEffect(()=>{let active=true;void supabase.storage.from(attachment.storage_bucket).createSignedUrl(attachment.storage_path,300).then(({data})=>{if(active&&data?.signedUrl)setUrl(data.signedUrl);});return()=>{active=false;};},[attachment,supabase]);if(!url)return <div className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs text-[var(--muted)]"><FileText size={15}/>{attachment.original_filename||"Attachment"}</div>;if(attachment.media_type==="image")return <a href={url} target="_blank" rel="noreferrer" className="mt-2 block overflow-hidden rounded-xl"><img src={url} alt={attachment.original_filename||"Message attachment"} className="max-h-80 max-w-full object-contain"/></a>;return <a href={url} target="_blank" rel="noreferrer" className="mt-2 flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-xs"><FileText size={15}/>{attachment.original_filename||"Open attachment"}</a>;}
