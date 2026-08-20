@@ -127,7 +127,7 @@ drop policy if exists ai_generation_jobs_admin_update on public.ai_generation_jo
 create policy ai_generation_jobs_admin_update on public.ai_generation_jobs for update using (public.can_administer('ai.manage')) with check (public.can_administer('ai.manage'));
 
 drop policy if exists ai_moderation_events_owner_select on public.ai_moderation_events;
-create policy ai_moderation_events_owner_select on public.ai_moderation_events for select using (auth.uid() = user_id or public.can_administer('moderation.view'));
+create policy ai_moderation_events_owner_select on public.ai_moderation_events for select using (auth.uid() = user_id or public.can_administer('moderation.manage'));
 drop policy if exists ai_moderation_events_admin_write on public.ai_moderation_events;
 create policy ai_moderation_events_admin_write on public.ai_moderation_events for all using (public.can_administer('moderation.manage')) with check (public.can_administer('moderation.manage'));
 
@@ -169,6 +169,11 @@ grant execute on function public.consume_ai_rate_limit(text, integer) to authent
 insert into public.ai_feature_policies(task_type, enabled, max_requests_per_minute, max_input_chars) values
 ('assistant', true, 20, 12000),('support', true, 20, 12000),('seller', true, 20, 12000),('affiliate', true, 20, 12000),('creator', true, 15, 12000),('admin', true, 30, 12000),('moderation', true, 30, 12000),('search', true, 30, 8000)
 on conflict (task_type) do nothing;
+
+update public.ai_feature_policies set allowed_roles=array['platform_admin','analytics_admin','super_admin'], required_permission='analytics.view' where task_type='admin';
+update public.ai_feature_policies set allowed_roles=array['moderation_admin','compliance_admin','super_admin'], required_permission='moderation.manage' where task_type='moderation';
+update public.ai_feature_policies set allowed_roles=array['vendor','platform_admin','super_admin'] where task_type='seller';
+update public.ai_feature_policies set allowed_roles=array['affiliate','affiliate_admin','super_admin'] where task_type='affiliate';
 
 comment on table public.ai_provider_configs is 'DRIGHT AI provider routing policy; contains no provider secrets.';
 comment on table public.ai_feature_policies is 'DRIGHT AI feature-level authorization, input and rate policies.';
