@@ -21,6 +21,10 @@ function safeTask(value: unknown): AITask {
   return typeof value === "string" && tasks.includes(value as AITask) ? value as AITask : "assistant";
 }
 
+function conversationType(task: AITask) {
+  return task === "search" ? "assistant" : task;
+}
+
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
@@ -42,7 +46,7 @@ export async function POST(request: Request) {
   }
 
   if (!conversationId) {
-    const { data: conversation, error } = await supabase.from("ai_conversations").insert({ user_id: user.id, conversation_type: task === "assistant" ? "assistant" : task, title: message.slice(0, 80) }).select("id,public_id").single();
+    const { data: conversation, error } = await supabase.from("ai_conversations").insert({ user_id: user.id, conversation_type: conversationType(task), title: message.slice(0, 80) }).select("id,public_id").single();
     if (error || !conversation) return NextResponse.json({ error: "conversation_create_failed" }, { status: 500 });
     conversationId = conversation.id;
   }
