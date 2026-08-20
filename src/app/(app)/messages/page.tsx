@@ -1,37 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { MessageSquare, Plus } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { BellOff, MessageSquare, Plus, Search } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Conversation = { id: string; order_id: string | null; conversation_type: string; updated_at: string; };
+type Conversation = { id: string; public_id?: string; order_id: string | null; conversation_type: string; updated_at: string; status?: string };
+type Participant = { conversation_id: string; last_read_at: string | null; is_muted: boolean; is_archived: boolean; conversation: Conversation | Conversation[] | null };
 
 export default function MessagesPage() {
-  const supabase = createClient();
-  const [rows, setRows] = useState<Conversation[]>([]);
+  const supabase = useMemo(() => createClient(), []);
+  const [rows, setRows] = useState<Participant[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let active = true;
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = "/login?next=/messages"; return; }
-      const { data, error } = await supabase.from("chat_participants").select("conversation_id,chat_conversations(id,order_id,conversation_type,updated_at)").eq("user_id", user.id);
+      const { data, error: fetchError } = await supabase.from("chat_participants").select("conversation_id,last_read_at,is_muted,is_archived,chat_conversations(id,public_id,order_id,conversation_type,updated_at,status)").eq("user_id", user.id).order("joined_at", { ascending: false });
       if (!active) return;
-      if (error) setError(error.message);
-      else setRows((data || []).map((x: any) => Array.isArray(x.chat_conversations) ? x.chat_conversations[0] : x.chat_conversations).filter(Boolean));
+      if (fetchError) setError(fetchError.message); else setRows((data || []) as unknown as Participant[]);
       setLoading(false);
     })();
     return () => { active = false; };
-  }, []);
+  }, [supabase]);
 
-  return <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 lg:px-8">
-    <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">DRIGHT communication</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">Messages</h1><p className="mt-2 text-sm text-[var(--muted)]">Order and support conversations stay connected to the relevant DRIGHT record.</p></div><Link href="/marketplace" className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold"><Plus size={16}/> New conversation</Link></div>
-    {error && <div className="mt-6 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">{error}</div>}
-    <section className="mt-6 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5">
-      {loading ? <div className="h-48 animate-pulse rounded-xl bg-[var(--background)]"/> : rows.length ? <div className="divide-y divide-[var(--border)]">{rows.map((row) => <Link key={row.id} href={`/messages/${row.id}`} className="flex items-center gap-4 py-4 first:pt-1 last:pb-1"><span className="grid h-11 w-11 place-items-center rounded-xl border border-[var(--border)]"><MessageSquare size={19}/></span><span className="min-w-0 flex-1"><span className="block font-semibold">{row.order_id ? `Order ${row.order_id}` : row.conversation_type === "support" ? "DRIGHT Support" : "Conversation"}</span><span className="mt-1 block text-xs text-[var(--muted)]">Updated {new Date(row.updated_at).toLocaleString()}</span></span></Link>)}</div> : <div className="py-14 text-center"><MessageSquare size={30} className="mx-auto"/><h2 className="mt-4 font-semibold">No conversations yet</h2><p className="mt-1 text-sm text-[var(--muted)]">Start from an order, listing, vendor or support case.</p></div>}
+  const normalized = rows.map((row) => ({ ...row, conversation: Array.isArray(row.conversation) ? row.conversation[0] : row.conversation })).filter((row) => row.conversation) as Array<Participant & { conversation: Conversation }>;
+  const filtered = normalized.filter((row) => {
+    const c = row.conversation;
+    return !query || `${c.public_id || ""} ${c.order_id || ""} ${c.conversation_type}`.toLowerCase().includes(query.toLowerCase());
+  });
+
+  return <div className="mx-auto max-w-6xl px-3 py-5 sm:px-6 lg:px-8">
+    <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">DRIGHT communication</p><h1 className="mt-1 text-3xl font-semibold tracking-tight">Messages</h1><p className="mt-2 text-sm text-[var(--muted)]">One inbox for orders, support, marketplace, communities, affiliates, creators and direct communication.</p></div><Link href="/messages/new" className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold"><Plus size={16}/> New conversation</Link></div>
+    <div className="mt-6 flex items-center gap-2 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-2"><Search size={17} className="text-[var(--muted)]"/><input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="Search conversations…" className="min-w-0 flex-1 bg-transparent text-sm outline-none"/></div>
+    {error && <div className="mt-4 rounded-xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-600">{error}</div>}
+    <section className="mt-4 rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      {loading ? <div className="h-64 animate-pulse rounded-2xl bg-[var(--background)]"/> : filtered.length ? <div className="divide-y divide-[var(--border)]">{filtered.map((row) => { const c = row.conversation; const label = c.order_id ? `Order ${c.order_id}` : c.conversation_type === "support" ? "DRIGHT Support" : c.conversation_type.replaceAll("_", " "); const unread = !row.last_read_at; return <Link key={row.conversation_id} href={`/messages/${c.id}`} className="flex items-center gap-3 p-4 transition hover:bg-[var(--background)] sm:gap-4"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl border border-[var(--border)]"><MessageSquare size={19}/></span><span className="min-w-0 flex-1"><span className="flex items-center gap-2"><span className={`truncate font-semibold capitalize ${unread ? "text-[var(--foreground)]" : ""}`}>{label}</span>{unread && <span className="h-2 w-2 rounded-full bg-[var(--primary)]"/>}</span><span className="mt-1 block text-xs text-[var(--muted)]">{c.public_id || c.id} · Updated {new Date(c.updated_at).toLocaleString()}</span></span>{row.is_muted && <BellOff size={15} className="text-[var(--muted)]"/>}</Link>; })}</div> : <div className="py-16 text-center"><MessageSquare size={30} className="mx-auto text-[var(--muted)]"/><h2 className="mt-4 font-semibold">No conversations yet</h2><p className="mt-1 text-sm text-[var(--muted)]">Start from an order, listing, vendor, community or support case.</p></div>}
     </section>
   </div>;
 }
