@@ -5,7 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BookOpen, BriefcaseBusiness, CheckCircle2, Heart, Search, ShoppingBag, Sparkles, Wrench } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type Item = { id: string; title: string; description: string | null; item_type: string | null; price: number | null; currency: string | null; status: string | null; created_at: string | null };
+type Item = { id: string; title: string; description: string | null; item_type: string | null; price: number | null; currency_code: string | null; status: string | null; created_at: string | null };
 
 const filters = [
   ["All", "all", Sparkles],
@@ -28,7 +28,7 @@ export default function MarketplacePage() {
     async function load() {
       setLoading(true);
       setError("");
-      let request = supabase.from("marketplace_items").select("id,title,description,item_type,price,currency,status,created_at").eq("status", "published").order("created_at", { ascending: false }).limit(24);
+      let request = supabase.from("marketplace_items").select("id,title,description,item_type,price,currency_code,status,created_at").eq("status", "published").order("created_at", { ascending: false }).limit(24);
       if (filter !== "all") request = request.eq("item_type", filter);
       const { data, error: queryError } = await request;
       if (queryError) setError(queryError.message);
@@ -105,7 +105,7 @@ export default function MarketplacePage() {
                       <div className="flex items-center justify-between gap-2"><span className="rounded-full bg-[var(--background)] px-2.5 py-1 text-[11px] font-medium uppercase tracking-wide text-[var(--muted)]">{labelFor(item.item_type)}</span><Heart size={17} className="text-[var(--muted)]" /></div>
                       <h3 className="mt-4 line-clamp-2 font-semibold">{item.title}</h3>
                       <p className="mt-2 line-clamp-2 text-sm leading-5 text-[var(--muted)]">{item.description || "Explore this DRIGHT listing."}</p>
-                      <div className="mt-5 flex items-center justify-between border-t border-[var(--border)] pt-4"><span className="font-semibold">{item.price == null ? "Contact seller" : `${item.currency || "USD"} ${item.price.toLocaleString()}`}</span><ArrowRight size={17} className="transition group-hover:translate-x-1" /></div>
+                      <div className="mt-5 flex items-center justify-between border-t border-[var(--border)] pt-4"><span className="font-semibold">{item.price == null ? "Contact seller" : `${item.currency_code || "USD"} ${item.price.toLocaleString()}`}</span><ArrowRight size={17} className="transition group-hover:translate-x-1" /></div>
                       <p className="mt-3 truncate font-mono text-[10px] text-[var(--muted)]" title={item.id}>ID: {item.id}</p>
                     </div>
                   </Link>
