@@ -38,7 +38,7 @@ begin
  insert into public.audit_logs(actor_user_id,action,resource_type,resource_id,metadata) values(auth.uid(),'role.created','role',v_role.slug,jsonb_build_object('role_id',v_role.id,'permission_count',coalesce(array_length(p_permission_ids,1),0)));
  return v_role;
 end; $$;
-revoke all on function public.admin_create_role(text,text,text,uuid[]) from public;
+revoke execute on function public.admin_create_role(text,text,text,uuid[]) from anon, public;
 grant execute on function public.admin_create_role(text,text,text,uuid[]) to authenticated;
 
 create or replace function public.admin_set_role_permissions(p_role_id uuid,p_permission_ids uuid[]) returns integer language plpgsql security definer set search_path = public as $$
@@ -54,7 +54,7 @@ begin
  insert into public.audit_logs(actor_user_id,action,resource_type,resource_id,metadata) values(auth.uid(),'role_permissions_updated','role',v_role.slug,jsonb_build_object('role_id',p_role_id,'permission_count',v_count));
  return v_count;
 end; $$;
-revoke all on function public.admin_set_role_permissions(uuid,uuid[]) from public;
+revoke all on function public.admin_set_role_permissions(uuid,uuid[]) from public, anon;
 grant execute on function public.admin_set_role_permissions(uuid,uuid[]) to authenticated;
 
 create or replace function public.moderation_record_action(p_report_id uuid,p_action text,p_reason text default null,p_metadata jsonb default '{}') returns public.moderation_actions language plpgsql security definer set search_path = public as $$
@@ -71,7 +71,7 @@ begin
  insert into public.audit_logs(actor_user_id,action,resource_type,resource_id,metadata) values(auth.uid(),'moderation_action','report',v_report.report_id,jsonb_build_object('action',p_action,'reason',p_reason,'previous_status',v_report.status,'new_status',v_new_status));
  return v_action;
 end; $$;
-revoke all on function public.moderation_record_action(uuid,text,text,jsonb) from public;
+revoke all on function public.moderation_record_action(uuid,text,text,jsonb) from public, anon;
 grant execute on function public.moderation_record_action(uuid,text,text,jsonb) to authenticated;
 
 create or replace function public.cms_publish_page(p_page_id uuid,p_change_summary text default null) returns public.cms_pages language plpgsql security definer set search_path = public as $$
@@ -87,7 +87,7 @@ begin
  insert into public.audit_logs(actor_user_id,action,resource_type,resource_id,metadata) values(auth.uid(),'cms_page_published','cms_page',v_page.page_id,jsonb_build_object('version',v_version));
  return v_page;
 end; $$;
-revoke all on function public.cms_publish_page(uuid,text) from public;
+revoke all on function public.cms_publish_page(uuid,text) from public, anon;
 grant execute on function public.cms_publish_page(uuid,text) to authenticated;
 
 create or replace function public.admin_review_access_request(p_request_id text,p_decision text,p_notes text default null) returns public.admin_access_requests language plpgsql security definer set search_path = public as $$
@@ -112,5 +112,5 @@ begin
  insert into public.audit_logs(actor_user_id,action,resource_type,resource_id,target_user_id,metadata) values(auth.uid(),'admin_access_reviewed','admin_access_request',v_req.request_id,v_req.applicant_user_id,jsonb_build_object('decision',p_decision,'previous_role',v_previous_role,'new_role',case when p_decision='approved' then v_role.slug else null end,'notes',p_notes));
  return v_req;
 end; $$;
-revoke all on function public.admin_review_access_request(text,text,text) from public;
+revoke all on function public.admin_review_access_request(text,text,text) from public, anon;
 grant execute on function public.admin_review_access_request(text,text,text) to authenticated;
