@@ -3,14 +3,14 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, BookOpen, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Heart, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy } from "lucide-react";
+import { Bell, BookOpen, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Gift, Heart, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getFeatureMap, featureUsable, type Feature } from "@/lib/features";
 import { AdminShell } from "@/components/admin-shell";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 
 const primary = [["Dashboard","/dashboard",Home,null],["Marketplace","/marketplace",Compass,null],["Social Feed","/social",Rss,"social_feed"],["Communities","/communities",Users,"communities_social"],["Leaderboards","/leaderboards",Trophy,"social_leaderboards"],["Notifications","/notifications",Bell,"announcements"]] as const;
-const account = [["Profile","/profile",UserRound,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Orders","/orders",ShoppingBag,"orders"],["Favorites","/favorites",Heart,null],["Messages","/messages",MessageSquare,"messages"]] as const;
+const account = [["Profile","/profile",UserRound,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Reward Center","/rewards",Gift,null],["Orders","/orders",ShoppingBag,"orders"],["Favorites","/favorites",Heart,null],["Messages","/messages",MessageSquare,"messages"]] as const;
 const growth = [["Affiliate Center","/affiliate",CircleDollarSign,"affiliate_center"],["Vendor Center","/vendor",Store,"vendor_center"],["Buyer Dashboard","/buyer",ShoppingBag,null],["Learning","/learning",BookOpen,"courses"],["DRIGHT Gen.ai","/gen-ai",Sparkles,null]] as const;
 type NavItemType = readonly [string,string,any,string|null];
 
