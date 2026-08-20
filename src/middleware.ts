@@ -1,11 +1,11 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+// Public discovery routes (including marketplace and public profiles) are intentionally
+// excluded. Protected routes below require an authenticated Supabase session.
 const protectedPrefixes = [
   "/dashboard",
-  "/marketplace",
   "/notifications",
-  "/profile",
   "/referrals",
   "/wallet",
   "/orders",
