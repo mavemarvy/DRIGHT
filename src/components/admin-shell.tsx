@@ -3,11 +3,13 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, LogOut, Menu, Search, Settings, ShieldCheck, Users, X } from "lucide-react";
+import { ChevronLeft, ChevronRight, DollarSign, FileText, LayoutDashboard, ListChecks, LogOut, Menu, Megaphone, Search, Settings, ShieldCheck, Users, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 const nav = [
   ["Overview", "/admin", LayoutDashboard],
+  ["Listings & Reviews", "/admin/listings", ListChecks],
+  ["Promotions & Advertising", "/admin/promotions", Megaphone],
   ["Feature Control", "/admin/features", Settings],
   ["ID Lookup", "/admin/ids", Search],
   ["Finance", "/admin/finance", DollarSign],
@@ -47,7 +49,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
     <div className={`flex h-12 items-center ${collapsed ? "justify-center" : "justify-between"} px-2`}><Link href="/admin" className="text-xl font-bold tracking-tight">{collapsed ? "A" : "DRIGHT Admin"}</Link>{!collapsed && <button onClick={() => setCollapsed(true)} className="rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--background)]"><ChevronLeft size={18}/></button>}</div>
     {collapsed && <button onClick={() => setCollapsed(false)} className="mb-4 rounded-lg p-2 text-[var(--muted)] hover:bg-[var(--background)]" title="Expand"><ChevronRight size={18} className="mx-auto"/></button>}
     <div className="mb-3 mt-4 rounded-xl border border-[var(--border)] bg-[var(--background)] p-3"><div className="flex items-center gap-2"><ShieldCheck size={17}/>{!collapsed && <div><p className="text-xs font-semibold">Administrator</p><p className="text-[10px] text-[var(--muted)]">Secure control space</p></div>}</div></div>
-    <nav className="flex-1 space-y-1">{!collapsed && <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Control Center</div>}{nav.map(item => <AdminNavItem key={item[1]} item={item} collapsed={collapsed}/>)}</nav>
+    <nav className="flex-1 space-y-1 overflow-y-auto">{!collapsed && <div className="mb-2 px-3 text-[10px] font-semibold uppercase tracking-widest text-[var(--muted)]">Control Center</div>}{nav.map(item => <AdminNavItem key={item[1]} item={item} collapsed={collapsed}/>)}</nav>
     <div className="space-y-1 border-t border-[var(--border)] pt-3"><Link href="/dashboard" title={collapsed ? "Return to DRIGHT" : undefined} className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--muted)] hover:bg-[var(--background)] hover:text-[var(--foreground)] ${collapsed ? "justify-center" : ""}`}><Users size={18}/><span className={collapsed ? "sr-only" : ""}>Return to DRIGHT</span></Link><button onClick={signOut} title={collapsed ? "Logout" : undefined} className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm text-[var(--muted)] hover:bg-[var(--background)] ${collapsed ? "justify-center" : ""}`}><LogOut size={18}/><span className={collapsed ? "sr-only" : ""}>Logout</span></button></div>
   </aside>;
 
