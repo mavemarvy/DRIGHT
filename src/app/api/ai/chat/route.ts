@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { createServiceClient } from "@/lib/supabase/service";
 import { buildSystemPrompt, generateAI, type AIRuntimeConfig, type AITask, type AIMessage } from "@/lib/ai/router";
 
 export const runtime = "nodejs";
@@ -9,9 +10,8 @@ const tasks: AITask[] = ["assistant", "support", "seller", "affiliate", "creator
 const isTask = (value: unknown): value is AITask => typeof value === "string" && tasks.includes(value as AITask);
 const readString = (value: unknown) => typeof value === "string" ? value.trim() : "";
 const jsonObject = (value: unknown): Record<string, unknown> => value && typeof value === "object" && !Array.isArray(value) ? value as Record<string, unknown> : {};
-
-function safeTask(value: unknown): AITask { return isTask(value) ? value : "assistant"; }
-function conversationType(task: AITask) { return task === "search" ? "assistant" : task; }
+const safeTask = (value: unknown): AITask => isTask(value) ? value : "assistant";
+const conversationType = (task: AITask) => task === "search" ? "assistant" : task;
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -20,7 +20,6 @@ export async function POST(request: Request) {
 
   let body: Record<string, unknown>;
   try { body = jsonObject(await request.json()); } catch { return NextResponse.json({ error: "invalid_json" }, { status: 400 }); }
-
   const message = readString(body.message);
   const task = safeTask(body.task);
   const requestedConversationId = readString(body.conversationId) || null;
@@ -57,6 +56,7 @@ export async function POST(request: Request) {
   const { data: withinLimit, error: rateError } = await supabase.rpc("consume_ai_rate_limit", { p_task_type: task, p_limit: limit });
   if (rateError || withinLimit !== true) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
+  const service = createServiceClient();
   let conversationId = requestedConversationId;
   if (conversationId) {
     const { data: conversation } = await supabase.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", user.id).eq("status", "active").maybeSingle();
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
   const [{ data: history }, { data: managedPrompt }] = await Promise.all([
     supabase.from("ai_messages").select("role,content").eq("conversation_id", conversationId).eq("user_id", user.id).order("created_at", { ascending: false }).limit(12),
-    supabase.from("ai_prompt_versions").select("prompt_text").eq("task_type", task).eq("is_active", true).order("version", { ascending: false }).limit(1).maybeSingle(),
+    service.from("ai_prompt_versions").select("prompt_text").eq("task_type", task).eq("is_active", true).order("version", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const contextParts: string[] = [];
@@ -121,16 +121,16 @@ export async function POST(request: Request) {
   } catch (error) {
     clearTimeout(timeout);
     const errorCode = error instanceof Error ? error.message.slice(0, 120) : "ai_generation_failed";
-    await supabase.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: "router", model: "fallback", task_type: task, success: false, error_code: errorCode });
-    await supabase.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: "I’m unable to complete that AI request right now. Please try again shortly.", status: "failed", metadata: { requestId } });
+    await service.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: "router", model: "fallback", task_type: task, success: false, error_code: errorCode });
+    await service.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: "I’m unable to complete that AI request right now. Please try again shortly.", status: "failed", metadata: { requestId } });
     return NextResponse.json({ error: "ai_unavailable", requestId }, { status: 503 });
   }
   clearTimeout(timeout);
 
-  const { data: saved, error: saveError } = await supabase.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: result.text, provider: result.provider, model: result.model, input_tokens: result.inputTokens, output_tokens: result.outputTokens, latency_ms: result.latencyMs, status: "completed", metadata: { requestId } }).select("id").single();
-  await supabase.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: result.provider, model: result.model, task_type: task, input_tokens: result.inputTokens, output_tokens: result.outputTokens, estimated_cost: result.estimatedCost, latency_ms: result.latencyMs, success: !saveError });
+  const { data: saved, error: saveError } = await service.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: result.text, provider: result.provider, model: result.model, input_tokens: result.inputTokens, output_tokens: result.outputTokens, latency_ms: result.latencyMs, status: "completed", metadata: { requestId } }).select("id").single();
+  await service.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: result.provider, model: result.model, task_type: task, input_tokens: result.inputTokens, output_tokens: result.outputTokens, estimated_cost: result.estimatedCost, latency_ms: result.latencyMs, success: !saveError });
   if (saveError) return NextResponse.json({ error: "response_save_failed", requestId }, { status: 500 });
-  await supabase.from("ai_conversations").update({ summary: result.text.slice(0, 1000) }).eq("id", conversationId).eq("user_id", user.id);
+  await service.from("ai_conversations").update({ summary: result.text.slice(0, 1000) }).eq("id", conversationId).eq("user_id", user.id);
 
   return NextResponse.json({ conversationId, messageId: saved?.id || null, requestId, response: result.text, provider: result.provider, model: result.model, usage: { inputTokens: result.inputTokens || null, outputTokens: result.outputTokens || null, latencyMs: result.latencyMs } });
 }
