@@ -14,6 +14,7 @@ const safeTask = (value: unknown): AITask => isTask(value) ? value : "assistant"
 const conversationType = (task: AITask) => task === "search" ? "assistant" : task;
 
 type ManagedPromptRow = { prompt_text?: string | null };
+type TrustedSupabase = { from(table: string): any };
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -58,7 +59,7 @@ export async function POST(request: Request) {
   const { data: withinLimit, error: rateError } = await supabase.rpc("consume_ai_rate_limit", { p_task_type: task, p_limit: limit });
   if (rateError || withinLimit !== true) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
-  const service = createServiceClient();
+  const service = createServiceClient() as unknown as TrustedSupabase;
   let conversationId = requestedConversationId;
   if (conversationId) {
     const { data: conversation } = await supabase.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", user.id).eq("status", "active").maybeSingle();
