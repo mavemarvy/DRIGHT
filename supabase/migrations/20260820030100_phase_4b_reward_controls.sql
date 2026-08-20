@@ -1,0 +1,4 @@
+-- DRIGHT Prompt 4B reward controls. Production installation is forward-only and preserves existing cash ledgers.
+-- Functions: reward wallet provisioning, issue/spend, coupon validation/redemption, gift-code generation/redemption,
+-- giveaway entry/winner selection and reward expiry. Implementations are installed by the corresponding live Supabase migration.
+-- This migration marker intentionally contains no destructive SQL.
