@@ -1,0 +1,60 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useMemo, useState } from "react";
+import { Bell, CheckCheck, ExternalLink } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+
+type NotificationRow = { id: string; public_id?: string; notification_type: string; category?: string; title: string; body: string | null; entity_type: string | null; entity_id: string | null; is_read: boolean; read_at?: string | null; action_url?: string | null; priority?: string; created_at: string };
+
+export default function NotificationsPage() {
+  const supabase = useMemo(() => createClient(), []);
+  const [rows, setRows] = useState<NotificationRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  async function load() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { window.location.href = "/login?next=/notifications"; return; }
+    const { data, error: fetchError } = await supabase.from("notifications").select("id,public_id,notification_type,category,title,body,entity_type,entity_id,is_read,read_at,action_url,priority,created_at").order("created_at", { ascending: false }).limit(100);
+    if (fetchError) setError(fetchError.message); else setRows((data || []) as NotificationRow[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    void load();
+    let channel: ReturnType<typeof supabase.channel> | null = null;
+    let active = true;
+    void supabase.auth.getUser().then(({ data: { user } }) => {
+      if (!active || !user) return;
+      channel = supabase.channel(`notifications:${user.id}`).on("postgres_changes", { event: "INSERT", schema: "public", table: "notifications", filter: `user_id=eq.${user.id}` }, (payload) => {
+        setRows((current) => [payload.new as NotificationRow, ...current.filter((n) => n.id !== payload.new.id)].slice(0, 100));
+      }).subscribe();
+    });
+    return () => { active = false; if (channel) void supabase.removeChannel(channel); };
+  }, [supabase]);
+
+  async function markRead(id: string) {
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase.from("notifications").update({ is_read: true, read_at: now }).eq("id", id);
+    if (updateError) setError(updateError.message); else setRows((current) => current.map((n) => n.id === id ? { ...n, is_read: true, read_at: now } : n));
+  }
+
+  async function markAllRead() {
+    const unread = rows.filter((n) => !n.is_read).map((n) => n.id);
+    if (!unread.length) return;
+    const now = new Date().toISOString();
+    const { error: updateError } = await supabase.from("notifications").update({ is_read: true, read_at: now }).in("id", unread);
+    if (updateError) setError(updateError.message); else setRows((current) => current.map((n) => unread.includes(n.id) ? { ...n, is_read: true, read_at: now } : n));
+  }
+
+  const unreadCount = rows.filter((n) => !n.is_read).length;
+
+  return <div className="mx-auto max-w-4xl px-3 py-6 sm:px-6 lg:px-8">
+    <div className="flex items-end justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Communication</p><h1 className="mt-1 text-3xl font-semibold">Notifications</h1><p className="mt-2 text-sm text-[var(--muted)]">Messages, marketplace, social, support, financial, security and system events in one center.</p></div><button onClick={() => void markAllRead()} disabled={!unreadCount} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-3 py-2 text-sm disabled:opacity-50"><CheckCheck size={16}/> Mark all read</button></div>
+    {error && <div className="mt-5 rounded-xl border border-red-500/20 bg-red-500/5 p-3 text-sm text-red-600">{error}</div>}
+    <section className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)]">
+      {loading ? <div className="h-64 animate-pulse bg-[var(--background)]"/> : rows.length ? <div className="divide-y divide-[var(--border)]">{rows.map((n) => { const destination = n.action_url || (n.entity_type === "conversation" && n.entity_id ? `/messages/${n.entity_id}` : null); const content = <><span className={`grid h-10 w-10 shrink-0 place-items-center rounded-xl border border-[var(--border)] ${n.is_read ? "opacity-60" : ""}`}><Bell size={17}/></span><span className="min-w-0 flex-1"><span className="flex flex-wrap items-center gap-2"><span className="font-semibold">{n.title}</span>{!n.is_read && <span className="h-2 w-2 rounded-full bg-[var(--primary)]"/>}<span className="rounded-full border border-[var(--border)] px-2 py-0.5 text-[10px] capitalize text-[var(--muted)]">{n.category || "system"}</span></span>{n.body && <span className="mt-1 block text-sm text-[var(--muted)]">{n.body}</span>}<span className="mt-1 block text-[10px] text-[var(--muted)]">{new Date(n.created_at).toLocaleString()}</span></span>{destination && <ExternalLink size={15} className="shrink-0 text-[var(--muted)]"/>}</>; return destination ? <Link key={n.id} href={destination} onClick={() => { if (!n.is_read) void markRead(n.id); }} className={`flex items-start gap-3 p-4 transition hover:bg-[var(--background)] ${n.is_read ? "" : "bg-[var(--background)]/50"}`}>{content}</Link> : <button key={n.id} onClick={() => { if (!n.is_read) void markRead(n.id); }} className={`flex w-full items-start gap-3 p-4 text-left transition hover:bg-[var(--background)] ${n.is_read ? "" : "bg-[var(--background)]/50"}`}>{content}</button>; })}</div> : <div className="py-16 text-center"><Bell size={30} className="mx-auto text-[var(--muted)]"/><h2 className="mt-4 font-semibold">You&apos;re all caught up</h2><p className="mt-1 text-sm text-[var(--muted)]">New communication and platform activity will appear here.</p></div>}
+    </section>
+  </div>;
+}
