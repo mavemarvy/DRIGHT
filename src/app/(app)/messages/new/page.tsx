@@ -9,6 +9,7 @@ export default function NewMessagePage() {
   const params = useSearchParams();
   const orderId = params.get("order") || "";
   const targetUserId = params.get("user") || "";
+  const listingId = params.get("listing") || "";
   const supabase = createClient();
   const [error, setError] = useState("");
 
@@ -18,7 +19,7 @@ export default function NewMessagePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { window.location.href = `/login?next=${encodeURIComponent(window.location.pathname + window.location.search)}`; return; }
 
-      if (!orderId && !targetUserId) { setError("Provide an Order ID or user ID to start a conversation."); return; }
+      if (!orderId && !targetUserId) { setError("Provide an Order ID, listing ID, or user ID to start a conversation."); return; }
 
       if (orderId) {
         const { data: order, error: orderError } = await supabase.from("orders").select("id,order_id,buyer_user_id").eq("order_id", orderId).maybeSingle();
@@ -32,6 +33,36 @@ export default function NewMessagePage() {
         if (createError || !conversation) { setError(createError?.message || "Unable to start conversation."); return; }
         const participants = [order.buyer_user_id, ...sellers].filter((v, i, a): v is string => Boolean(v) && a.indexOf(v) === i).map((user_id) => ({ conversation_id: conversation.id, user_id }));
         const { error: participantError } = await supabase.from("chat_participants").insert(participants);
+        if (participantError) { setError(participantError.message); return; }
+        if (active) window.location.replace(`/messages/${conversation.id}`);
+        return;
+      }
+
+      if (listingId) {
+        const { data: listing, error: listingError } = await supabase.from("marketplace_items").select("id,owner_user_id,status,visibility").eq("id", listingId).eq("status", "published").eq("visibility", "public").maybeSingle();
+        if (listingError || !listing) { setError("Listing not found or unavailable."); return; }
+        if (!listing.owner_user_id) { setError("This listing does not have an available seller contact."); return; }
+        if (listing.owner_user_id === user.id) { setError("You cannot start a marketplace conversation with yourself."); return; }
+
+        const { data: privacy } = await supabase.from("profile_privacy_settings").select("allow_messages_from").eq("user_id", listing.owner_user_id).maybeSingle();
+        const { data: follows } = await supabase.from("follows").select("follower_user_id").eq("follower_user_id", user.id).eq("following_user_id", listing.owner_user_id).eq("status", "active").maybeSingle();
+        if (privacy?.allow_messages_from === "none" || (privacy?.allow_messages_from === "followers" && !follows)) { setError("This seller does not currently accept messages from you."); return; }
+        const { data: blocked } = await supabase.from("user_blocks").select("blocker_user_id").or(`and(blocker_user_id.eq.${user.id},blocked_user_id.eq.${listing.owner_user_id}),and(blocker_user_id.eq.${listing.owner_user_id},blocked_user_id.eq.${user.id})`).limit(1).maybeSingle();
+        if (blocked) { setError("Messaging is unavailable between these users."); return; }
+
+        const { data: existingParticipants } = await supabase.from("chat_participants").select("conversation_id,chat_conversations!inner(id,conversation_type,listing_id)").eq("user_id", user.id);
+        const existingMarketplace = (existingParticipants || []).find((row: any) => {
+          const c = Array.isArray(row.chat_conversations) ? row.chat_conversations[0] : row.chat_conversations;
+          return c?.conversation_type === "marketplace" && c?.listing_id === listing.id;
+        });
+        if (existingMarketplace) {
+          const { data: other } = await supabase.from("chat_participants").select("user_id").eq("conversation_id", existingMarketplace.conversation_id).eq("user_id", listing.owner_user_id).maybeSingle();
+          if (other) { window.location.replace(`/messages/${existingMarketplace.conversation_id}`); return; }
+        }
+
+        const { data: conversation, error: createError } = await supabase.from("chat_conversations").insert({ created_by: user.id, conversation_type: "marketplace", listing_id: listing.id }).select("id").single();
+        if (createError || !conversation) { setError(createError?.message || "Unable to start marketplace conversation."); return; }
+        const { error: participantError } = await supabase.from("chat_participants").insert([{ conversation_id: conversation.id, user_id: user.id }, { conversation_id: conversation.id, user_id: listing.owner_user_id }]);
         if (participantError) { setError(participantError.message); return; }
         if (active) window.location.replace(`/messages/${conversation.id}`);
         return;
@@ -62,7 +93,7 @@ export default function NewMessagePage() {
       if (active) window.location.replace(`/messages/${conversation.id}`);
     })();
     return () => { active = false; };
-  }, [orderId, targetUserId]);
+  }, [orderId, targetUserId, listingId]);
 
   return <div className="mx-auto max-w-xl px-4 py-16 text-center"><MessageSquare size={34} className="mx-auto"/><h1 className="mt-5 text-2xl font-semibold">Starting conversation…</h1>{error && <p className="mt-3 text-sm text-red-600">{error}</p>} {!error && <p className="mt-2 text-sm text-[var(--muted)]">Checking permissions and connecting the right DRIGHT participants.</p>}</div>;
 }
