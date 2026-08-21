@@ -1,41 +1,25 @@
 "use client";
+
 import { useEffect, useMemo, useState } from "react";
+import { ArrowUpRight, CheckCircle2, Clock3, Coins, Search, WalletCards } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+type Commission={commission_id:string;order_id:string|null;order_item_id:string|null;item_id:string|null;base_amount:number|null;commission_percent:number|null;commission_amount:number|null;currency_code:string|null;status:string|null;available_at:string|null;paid_at:string|null;reversed_at:string|null;created_at:string};
+
+const label=(s:string|null)=>{const v=(s||"pending").toLowerCase();if(v==="available")return "Available";if(v==="paid")return "Paid";if(v==="reversed")return "Reversed";if(v==="cancelled")return "Cancelled";return "Pending"};
+const badge=(s:string|null)=>{const v=label(s);return v==="Paid"?"bg-emerald-500/10 text-emerald-700 dark:text-emerald-300":v==="Available"?"bg-blue-500/10 text-blue-700 dark:text-blue-300":v==="Reversed"||v==="Cancelled"?"bg-red-500/10 text-red-700 dark:text-red-300":"bg-amber-500/10 text-amber-700 dark:text-amber-300"};
+
 export default function CommissionPage(){
-  const s=createClient();
-  const [rows,setRows]=useState<any[]>([]);
-  const [q,setQ]=useState("");
-  const [status,setStatus]=useState("all");
-  const [loading,setLoading]=useState(true);
-
-  useEffect(()=>{
-    (async()=>{
-      const {data:{user}}=await s.auth.getUser();
-      if(!user){location.href="/login?next=/affiliate/commissions";return;}
-      const r=await s.from("commissions").select("commission_id,order_id,order_item_id,item_id,base_amount,commission_percent,commission_amount,currency_code,status,available_at,paid_at,reversed_at,created_at").eq("affiliate_user_id",user.id).order("created_at",{ascending:false});
-      setRows(r.data||[]);
-      setLoading(false);
-    })();
-  },[]);
-
-  const filtered=useMemo(()=>rows.filter(r=>(status==="all"||r.status===status)&&JSON.stringify(r).toLowerCase().includes(q.toLowerCase())),[rows,status,q]);
-  const totals=useMemo(()=>filtered.reduce((a,r)=>{
-    const n=Number(r.commission_amount||0);
-    if(r.status==="pending")a.pending+=n;
-    if(r.status==="available")a.available+=n;
-    if(r.status==="paid")a.paid+=n;
-    return a;
-  },{pending:0,available:0,paid:0}),[filtered]);
-
-  return <main className="mx-auto max-w-6xl px-4 py-8">
-    <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-      <div><h1 className="text-3xl font-semibold">Affiliate Commissions</h1><p className="mt-2 text-sm text-[var(--muted)]">Auditable earnings linked to orders, listings and payout status.</p></div>
-    </div>
-    <div className="mt-6 grid gap-3 sm:grid-cols-3">
-      {[["Pending",totals.pending],["Available",totals.available],["Paid",totals.paid]].map(([label,value])=><div key={String(label)} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4"><div className="text-xs uppercase tracking-wide text-[var(--muted)]">{label}</div><div className="mt-2 text-2xl font-semibold">{Number(value).toFixed(2)}</div></div>)}
-    </div>
-    <div className="mt-6 flex flex-col gap-3 sm:flex-row"><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search commission, order or listing ID" className="flex-1 rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-3 text-sm"/><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-[var(--border)] bg-[var(--surface)] px-3 py-3"><option value="all">All</option><option value="pending">Pending</option><option value="available">Available</option><option value="paid">Paid</option><option value="reversed">Reversed</option><option value="cancelled">Cancelled</option></select></div>
-    <section className="mt-6 overflow-x-auto rounded-2xl border border-[var(--border)] bg-[var(--surface)]"><table className="w-full min-w-[850px] text-left text-sm"><thead><tr className="border-b border-[var(--border)]"><th className="p-4">Commission ID</th><th>Order</th><th>Listing</th><th>Rate</th><th>Amount</th><th>Status</th><th className="p-4">Available</th></tr></thead><tbody>{loading?<tr><td className="p-6" colSpan={7}>Loading…</td></tr>:filtered.map(r=><tr className="border-b border-[var(--border)]" key={r.commission_id||r.order_item_id||r.order_id}><td className="p-4 font-medium">{r.commission_id||"—"}</td><td>{r.order_id||"—"}</td><td>{r.item_id||"—"}</td><td>{Number(r.commission_percent||0)}%</td><td>{Number(r.commission_amount||0).toFixed(2)} {r.currency_code||"USD"}</td><td>{r.status}</td><td className="p-4">{r.available_at?new Date(r.available_at).toLocaleString():"—"}</td></tr>)}</tbody></table>{!loading&&!filtered.length&&<p className="p-8 text-sm text-[var(--muted)]">No commissions found.</p>}</section>
-  </main>
+ const supabase=useMemo(()=>createClient(),[]);const [rows,setRows]=useState<Commission[]>([]);const [q,setQ]=useState("");const [status,setStatus]=useState("all");const [loading,setLoading]=useState(true);const [error,setError]=useState("");
+ useEffect(()=>{let cancelled=false;(async()=>{const {data:{user}}=await supabase.auth.getUser();if(!user){location.href="/login?next=/affiliate/commissions";return}const r=await supabase.from("commissions").select("commission_id,order_id,order_item_id,item_id,base_amount,commission_percent,commission_amount,currency_code,status,available_at,paid_at,reversed_at,created_at").eq("affiliate_user_id",user.id).order("created_at",{ascending:false});if(!cancelled){setRows((r.data||[]) as Commission[]);setError(r.error?.message||"");setLoading(false)}})();return()=>{cancelled=true}},[supabase]);
+ const filtered=useMemo(()=>rows.filter(r=>(status==="all"||r.status===status)&&JSON.stringify(r).toLowerCase().includes(q.toLowerCase())),[rows,status,q]);
+ const totals=useMemo(()=>rows.reduce((a,r)=>{const n=Number(r.commission_amount||0);if(label(r.status)==="Pending")a.pending+=n;if(label(r.status)==="Available")a.available+=n;if(label(r.status)==="Paid")a.paid+=n;return a},{pending:0,available:0,paid:0}),[rows]);
+ const currency=rows[0]?.currency_code||"USD";
+ return <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
+  <section className="rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8"><p className="text-xs font-bold uppercase tracking-[0.18em] text-[var(--primary)]">Affiliate Center</p><div className="mt-2 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between"><div><h1 className="text-3xl font-bold tracking-tight sm:text-4xl">Know exactly what your promotion is earning.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)]">Commission records are tied to authoritative DRIGHT orders and payout states. No client-side commission calculations are used.</p></div><a href="/referrals" className="inline-flex items-center gap-2 text-sm font-semibold text-[var(--primary)]">Referral Center <ArrowUpRight size={16}/></a></div></section>
+  {error&&<div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-300">{error}</div>}
+  <section className="mt-5 grid gap-3 sm:grid-cols-3">{[["Pending",totals.pending,Clock3],["Available",totals.available,WalletCards],["Paid",totals.paid,CheckCircle2]].map(([l,v,I])=><article key={String(l)} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm"><div className="flex items-center justify-between"><span className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{l}</span><span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--background)]"><I size={17}/></span></div><p className="mt-3 text-2xl font-bold">{Number(v).toFixed(2)} {currency}</p></article>)}</section>
+  <section className="mt-5 rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-sm sm:p-5"><div className="flex flex-col gap-3 lg:flex-row"><div className="relative flex-1"><Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--muted)]"/><input value={q} onChange={e=>setQ(e.target.value)} placeholder="Search commission, order or listing ID" className="w-full rounded-xl border border-[var(--border)] bg-[var(--background)] py-3 pl-9 pr-4 text-sm outline-none focus:border-[var(--primary)]"/></div><select value={status} onChange={e=>setStatus(e.target.value)} className="rounded-xl border border-[var(--border)] bg-[var(--background)] px-4 py-3 text-sm"><option value="all">All statuses</option><option value="pending">Pending</option><option value="available">Available</option><option value="paid">Paid</option><option value="reversed">Reversed</option><option value="cancelled">Cancelled</option></select></div></section>
+  <section className="mt-5 overflow-hidden rounded-2xl border border-[var(--border)] bg-[var(--surface)] shadow-sm"><div className="flex items-center justify-between border-b border-[var(--border)] p-5"><div><h2 className="font-bold">Commission history</h2><p className="mt-1 text-xs text-[var(--muted)]">{filtered.length} matching records</p></div><Coins size={18} className="text-[var(--muted)]"/></div><div className="overflow-x-auto"><table className="w-full min-w-[900px] text-left text-sm"><thead><tr className="border-b border-[var(--border)] text-xs text-[var(--muted)]"><th className="p-4">Commission ID</th><th>Order</th><th>Listing</th><th>Rate</th><th>Amount</th><th>Status</th><th>Available</th><th className="p-4">Paid</th></tr></thead><tbody>{loading?<tr><td className="p-8" colSpan={8}>Loading…</td></tr>:filtered.map(r=><tr key={r.commission_id} className="border-b border-[var(--border)] last:border-0"><td className="p-4 font-mono text-xs font-semibold">{r.commission_id}</td><td>{r.order_id||"—"}</td><td>{r.item_id||r.order_item_id||"—"}</td><td>{Number(r.commission_percent||0)}%</td><td className="font-semibold">{Number(r.commission_amount||0).toFixed(2)} {r.currency_code||currency}</td><td><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${badge(r.status)}`}>{label(r.status)}</span></td><td>{r.available_at?new Date(r.available_at).toLocaleDateString():"—"}</td><td className="p-4">{r.paid_at?new Date(r.paid_at).toLocaleDateString():"—"}</td></tr>)}</tbody></table>{!loading&&!filtered.length&&<p className="p-10 text-center text-sm text-[var(--muted)]">No commission records match your filters.</p>}</div></section>
+ </main>;
 }
