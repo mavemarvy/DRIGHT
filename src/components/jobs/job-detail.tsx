@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { ArrowLeft, Bookmark, BriefcaseBusiness, CheckCircle2, ExternalLink, MapPin, Send, Share2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -16,7 +16,7 @@ function compensation(job: Job) { if (job.salary_min == null && job.salary_max =
 
 export default function JobDetail() {
   const { id } = useParams<{ id: string }>();
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [job, setJob] = useState<Job | null>(null);
   const [employer, setEmployer] = useState<PublicIdentity | null>(null);
   const [application, setApplication] = useState<Application | null>(null);
