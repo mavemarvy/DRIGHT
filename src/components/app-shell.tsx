@@ -3,15 +3,15 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Gift, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy, Megaphone } from "lucide-react";
+import { Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Gift, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getFeatureMap, featureUsable, type Feature } from "@/lib/features";
 import { AdminShell } from "@/components/admin-shell";
 import { ThemeSwitcher } from "@/components/theme-switcher";
 import { NotificationBar } from "@/components/notification-bar";
 
-const primary = [["Dashboard","/dashboard",Home,null],["Marketplace","/marketplace",Compass,null],["Social Feed","/social",Rss,"social_feed"],["Communities","/communities",Users,"communities_social"],["Leaderboards","/leaderboards",Trophy,"social_leaderboards"],["Notifications","/notifications",Bell,"announcements"]] as const;
-const account = [["Profile","/profile",UserRound,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Reward Center","/rewards",Gift,null],["Orders","/orders",ShoppingBag,"orders"],["Messages","/messages",MessageSquare,"messages"]] as const;
+const primary = [["Dashboard","/dashboard",Home,null],["Marketplace","/marketplace",Compass,null],["Jobs","/jobs",BriefcaseBusiness,null],["Social Feed","/social",Rss,"social_feed"],["Communities","/communities",Users,"communities_social"],["Leaderboards","/leaderboards",Trophy,"social_leaderboards"],["Notifications","/notifications",Bell,"announcements"]] as const;
+const account = [["Profile","/profile",UserRound,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Reward Center","/rewards",Gift,null],["Orders","/orders",ShoppingBag,"orders"],["Messages","/messages",MessageSquare,"messages"],["My Jobs","/jobs/my-jobs",BriefcaseBusiness,null],["Applications","/applications",BriefcaseBusiness,null],["Saved Jobs","/saved-jobs",BriefcaseBusiness,null]] as const;
 const growth = [["Affiliate Center","/affiliate/commissions",CircleDollarSign,"affiliate_center"],["Vendor Center","/vendor",Store,"vendor_center"],["DRIGHT Gen.ai","/gen-ai",Sparkles,null]] as const;
 type NavItemType = readonly [string,string,any,string|null];
 
