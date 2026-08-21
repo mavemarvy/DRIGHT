@@ -9,7 +9,7 @@ import { Job, JobCard } from "@/components/jobs/job-card";
 type SortMode = "newest" | "oldest" | "salary-high" | "salary-low" | "deadline";
 
 export default function JobsMarketplace() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [jobs, setJobs] = useState<Job[]>([]);
   const [saved, setSaved] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -26,9 +26,10 @@ export default function JobsMarketplace() {
     async function load() {
       setLoading(true); setError("");
       let request = supabase.from("jobs").select("id,universal_id,employer_id,title,description,category,location_city,location_region,location_country,work_mode,employment_type,salary_min,salary_max,currency_code,experience_level,deadline,status,created_at").eq("status", "published").eq("visibility", "public").limit(30);
-      const q = query.trim();
+      const q = query.trim().replace(/[,()]/g, " ");
+      const loc = location.trim().replace(/[,()]/g, " ");
       if (q) request = request.or(`title.ilike.%${q}%,description.ilike.%${q}%,universal_id.ilike.%${q}%`);
-      if (location.trim()) request = request.or(`location_city.ilike.%${location.trim()}%,location_region.ilike.%${location.trim()}%,location_country.ilike.%${location.trim()}%`);
+      if (loc) request = request.or(`location_city.ilike.%${loc}%,location_region.ilike.%${loc}%,location_country.ilike.%${loc}%`);
       if (category) request = request.eq("category", category);
       if (mode) request = request.eq("work_mode", mode);
       if (sort === "newest") request = request.order("created_at", { ascending: false });
@@ -89,7 +90,6 @@ export default function JobsMarketplace() {
           <button type="button" onClick={() => setMobileFilters((open) => !open)} className="inline-flex items-center justify-center gap-2 rounded-xl border border-[var(--border)] px-4 py-3 text-sm font-semibold lg:hidden"><Filter size={17}/> Filters</button>
         </form>
       </section>
-
       <div className="mt-7 grid gap-7 lg:grid-cols-[220px_minmax(0,1fr)]">
         <aside className={`${mobileFilters ? "block" : "hidden"} lg:block`}><div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[var(--shadow-sm)] lg:sticky lg:top-24"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Filters</p><SlidersHorizontal size={15} className="text-[var(--muted)]"/></div><label className="mt-5 block text-xs font-medium text-[var(--muted)]">Category<select value={category} onChange={(event) => setCategory(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none"><option value="">All categories</option>{categories.map((value) => <option key={value} value={value}>{value}</option>)}</select></label><label className="mt-4 block text-xs font-medium text-[var(--muted)]">Work style<select value={mode} onChange={(event) => setMode(event.target.value)} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none"><option value="">Any</option><option value="remote">Remote</option><option value="hybrid">Hybrid</option><option value="on_site">On-site</option></select></label><label className="mt-4 block text-xs font-medium text-[var(--muted)]">Sort<select value={sort} onChange={(event) => setSort(event.target.value as SortMode)} className="mt-2 w-full rounded-xl border border-[var(--border)] bg-[var(--background)] px-3 py-2.5 text-sm outline-none"><option value="newest">Newest</option><option value="oldest">Oldest</option><option value="salary-high">Salary: high to low</option><option value="salary-low">Salary: low to high</option><option value="deadline">Deadline soonest</option></select></label><button type="button" onClick={() => { setQuery(""); setLocation(""); setCategory(""); setMode(""); setSort("newest"); }} className="mt-5 w-full rounded-xl border border-[var(--border)] px-3 py-2.5 text-sm font-semibold">Reset filters</button></div></aside>
         <main className="min-w-0"><div className="mb-4 flex items-center justify-between gap-4"><div><p className="text-xs font-semibold uppercase tracking-widest text-[var(--muted)]">Marketplace</p><h2 className="mt-1 text-2xl font-semibold">{jobs.length} live {jobs.length === 1 ? "job" : "jobs"}</h2></div><Link href="/jobs/applications" className="text-sm font-semibold text-[var(--muted)]">My applications →</Link></div>{loading ? <div className="grid gap-5 sm:grid-cols-2">{Array.from({ length: 6 }).map((_, index) => <div key={index} className="h-[350px] animate-pulse rounded-2xl border border-[var(--border)] bg-[var(--surface)]"/>)}</div> : error ? <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-700">Could not load jobs: {error}</div> : jobs.length === 0 ? <div className="rounded-2xl border border-dashed border-[var(--border)] bg-[var(--surface)] p-10 text-center"><BriefcaseBusiness size={28} className="mx-auto text-[var(--muted)]"/><h3 className="mt-3 font-semibold">No jobs match those filters</h3><p className="mt-1 text-sm text-[var(--muted)]">DRIGHT does not invent job listings. Try a broader search.</p></div> : <div className="grid gap-5 sm:grid-cols-2">{jobs.map((job) => <JobCard key={job.id} job={job} saved={saved.has(job.id)} onSave={toggleSave} onShare={share}/>)}</div>}</main>
