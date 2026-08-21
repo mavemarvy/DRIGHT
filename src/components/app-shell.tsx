@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Gift, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy, Megaphone } from "lucide-react";
+import { BarChart3, Bell, BriefcaseBusiness, ChevronLeft, ChevronRight, CircleDollarSign, Compass, Gift, HelpCircle, Home, Languages, LogOut, Menu, MessageSquare, Search, Settings, ShieldCheck, ShoppingBag, Sparkles, Store, UserRound, Users, Wallet, X, Rss, Trophy, Megaphone } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { getFeatureMap, featureUsable, type Feature } from "@/lib/features";
 import { AdminShell } from "@/components/admin-shell";
@@ -11,14 +11,10 @@ import { ThemeSwitcher } from "@/components/theme-switcher";
 import { NotificationBar } from "@/components/notification-bar";
 
 const primary = [["Dashboard","/dashboard",Home,null],["Marketplace","/marketplace",Compass,null],["Jobs","/jobs",BriefcaseBusiness,null],["Social Feed","/social",Rss,"social_feed"],["Communities","/communities",Users,"communities_social"],["Leaderboards","/leaderboards",Trophy,"social_leaderboards"],["Notifications","/notifications",Bell,"announcements"]] as const;
-const account = [["Profile","/profile",UserRound,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Reward Center","/rewards",Gift,null],["Orders","/orders",ShoppingBag,"orders"],["Messages","/messages",MessageSquare,"messages"],["My Jobs","/jobs/my-jobs",BriefcaseBusiness,null],["Applications","/applications",BriefcaseBusiness,null],["Saved Jobs","/saved-jobs",BriefcaseBusiness,null]] as const;
+const account = [["Profile","/profile",UserRound,null],["Analytics","/analytics",BarChart3,null],["Referral","/referrals",Users,"referrals"],["Wallet","/wallet",Wallet,"wallet"],["Reward Center","/rewards",Gift,null],["Orders","/orders",ShoppingBag,"orders"],["Messages","/messages",MessageSquare,"messages"],["My Jobs","/jobs/my-jobs",BriefcaseBusiness,null],["Applications","/applications",BriefcaseBusiness,null],["Saved Jobs","/saved-jobs",BriefcaseBusiness,null]] as const;
 const growth = [["Affiliate Center","/affiliate/commissions",CircleDollarSign,"affiliate_center"],["Vendor Center","/vendor",Store,"vendor_center"],["DRIGHT Gen.ai","/gen-ai",Sparkles,null]] as const;
 type NavItemType = readonly [string,string,any,string|null];
-
-function NavItem({ item, collapsed, onNavigate }: { item: NavItemType; collapsed: boolean; onNavigate?: () => void }) {
-  const pathname = usePathname(); const [label, href, Icon] = item; const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`));
-  return <Link href={href} onClick={onNavigate} title={collapsed ? label : undefined} aria-current={active ? "page" : undefined} className={`group flex min-h-10 items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-200 ${active ? "bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow-xs)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"} ${collapsed ? "justify-center" : ""}`}><Icon size={18} strokeWidth={active ? 2.25 : 1.9}/><span className={collapsed ? "sr-only" : ""}>{label}</span>{!collapsed && active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent)]"/>}</Link>;
-}
+function NavItem({ item, collapsed, onNavigate }: { item: NavItemType; collapsed: boolean; onNavigate?: () => void }) { const pathname = usePathname(); const [label, href, Icon] = item; const active = pathname === href || (href !== "/dashboard" && pathname.startsWith(`${href}/`)); return <Link href={href} onClick={onNavigate} title={collapsed ? label : undefined} aria-current={active ? "page" : undefined} className={`group flex min-h-10 items-center gap-3 rounded-[var(--radius-md)] px-3 py-2.5 text-sm font-medium transition-all duration-200 ${active ? "bg-[var(--accent-soft)] text-[var(--accent)] shadow-[var(--shadow-xs)]" : "text-[var(--muted)] hover:bg-[var(--surface-muted)] hover:text-[var(--foreground)]"} ${collapsed ? "justify-center" : ""}`}><Icon size={18} strokeWidth={active ? 2.25 : 1.9}/><span className={collapsed ? "sr-only" : ""}>{label}</span>{!collapsed && active && <span className="ml-auto h-1.5 w-1.5 rounded-full bg-[var(--accent)]"/>}</Link>; }
 function SectionLabel({ children, collapsed }: { children: React.ReactNode; collapsed: boolean }) { return <div className={`mb-2 mt-5 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-[var(--muted)] ${collapsed ? "sr-only" : ""}`}>{children}</div>; }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
