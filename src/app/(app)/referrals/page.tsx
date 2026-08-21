@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ArrowUpRight, Check, Copy, Gift, Share2, Trophy, Users, WalletCards } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Referral = {
@@ -31,6 +32,8 @@ type Reward = {
 };
 
 type Leader = { user_id: string; display_name: string | null; username: string | null; score: number; rank: number };
+
+type ReferralStat = [label: string, value: string | number, icon: LucideIcon];
 
 const statusLabel = (status: string | null) => {
   const value = (status || "pending").toLowerCase();
@@ -109,6 +112,14 @@ export default function ReferralsPage() {
     else await copyReferralId();
   };
 
+  const stats: ReferralStat[] = [
+    ["Total referrals", rows.length, Users],
+    ["Qualified", qualified, Check],
+    ["Conversion", `${conversion}%`, ArrowUpRight],
+    ["Earned", `${totals.earned.toFixed(2)} ${currency}`, Gift],
+    ["Paid", `${totals.paid.toFixed(2)} ${currency}`, WalletCards],
+  ];
+
   return (
     <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8">
       <section className="overflow-hidden rounded-[28px] border border-[var(--border)] bg-[var(--surface)] p-6 shadow-sm sm:p-8">
@@ -132,13 +143,7 @@ export default function ReferralsPage() {
       {error && <div className="mt-4 rounded-2xl border border-red-500/20 bg-red-500/5 p-4 text-sm text-red-700 dark:text-red-300">{error}</div>}
 
       <section className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
-        {[
-          ["Total referrals", rows.length, Users],
-          ["Qualified", qualified, Check],
-          ["Conversion", `${conversion}%`, ArrowUpRight],
-          ["Earned", `${totals.earned.toFixed(2)} ${currency}`, Gift],
-          ["Paid", `${totals.paid.toFixed(2)} ${currency}`, WalletCards],
-        ].map(([label, value, Icon]) => <article key={String(label)} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--background)]"><Icon size={17} /></span></div><p className="mt-3 text-2xl font-bold tracking-tight">{value}</p></article>)}
+        {stats.map(([label, value, Icon]) => <article key={label} className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-5 shadow-sm"><div className="flex items-center justify-between"><p className="text-xs font-semibold uppercase tracking-wide text-[var(--muted)]">{label}</p><span className="grid h-9 w-9 place-items-center rounded-xl bg-[var(--background)]"><Icon size={17} /></span></div><p className="mt-3 text-2xl font-bold tracking-tight">{value}</p></article>)}
       </section>
 
       <section className="mt-5 grid gap-5 lg:grid-cols-[1.45fr_.8fr]">
