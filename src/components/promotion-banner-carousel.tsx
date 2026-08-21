@@ -79,31 +79,8 @@ export function PromotionBannerCarousel({ placement = "marketplace_home", classN
   const current = banners[active];
   const media = useMemo(() => current ? mediaFor(current, deviceType) : null, [current, deviceType]);
 
-  useEffect(() => {
-    if (!current) return;
-    const supabase = createClient();
-    const eventKey = `banner-impression:${current.id}:${typeof window !== "undefined" ? window.location.pathname : "marketplace"}`;
-    void supabase.rpc("record_banner_event", {
-      p_banner_id: current.id,
-      p_event_key: eventKey,
-      p_event_type: "impression",
-      p_metadata: { placement },
-    });
-  }, [current, placement]);
-
   function change(index: number) {
     setActive((index + banners.length) % banners.length);
-  }
-
-  function trackClick() {
-    if (!current) return;
-    const supabase = createClient();
-    void supabase.rpc("record_banner_event", {
-      p_banner_id: current.id,
-      p_event_key: `banner-click:${current.id}:${Date.now()}`,
-      p_event_type: "click",
-      p_metadata: { placement },
-    });
   }
 
   if (loading || !current) return null;
@@ -125,11 +102,11 @@ export function PromotionBannerCarousel({ placement = "marketplace_home", classN
           {current.description && <p className="mt-2 max-w-2xl text-xs leading-5 text-[var(--muted)]">{current.description}</p>}
           {current.cta_label && current.destination_url && (
             isInternalDestination(current.destination_url) ? (
-              <Link href={current.destination_url} onClick={trackClick} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--background)]">
+              <Link href={current.destination_url} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--background)]">
                 {current.cta_label}<ArrowRight size={15} />
               </Link>
             ) : (
-              <a href={current.destination_url} target="_blank" rel="noreferrer" onClick={trackClick} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--background)]">
+              <a href={current.destination_url} target="_blank" rel="noreferrer" className="mt-5 inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-3 text-sm font-semibold text-[var(--background)]">
                 {current.cta_label}<ExternalLink size={15} />
               </a>
             )
