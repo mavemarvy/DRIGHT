@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { createServiceClient } from "@/lib/supabase/service";
 import { buildSystemPrompt, generateAI, type AIRuntimeConfig, type AITask, type AIMessage } from "@/lib/ai/router";
 
 export const runtime = "nodejs";
@@ -14,7 +13,6 @@ const safeTask = (value: unknown): AITask => isTask(value) ? value : "assistant"
 const conversationType = (task: AITask) => task === "search" ? "assistant" : task;
 
 type ManagedPromptRow = { prompt_text?: string | null };
-type TrustedSupabase = { from(table: string): any };
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -59,7 +57,6 @@ export async function POST(request: Request) {
   const { data: withinLimit, error: rateError } = await supabase.rpc("consume_ai_rate_limit", { p_task_type: task, p_limit: limit });
   if (rateError || withinLimit !== true) return NextResponse.json({ error: "rate_limit_exceeded" }, { status: 429 });
 
-  const service = createServiceClient() as unknown as TrustedSupabase;
   let conversationId = requestedConversationId;
   if (conversationId) {
     const { data: conversation } = await supabase.from("ai_conversations").select("id").eq("id", conversationId).eq("user_id", user.id).eq("status", "active").maybeSingle();
@@ -73,7 +70,7 @@ export async function POST(request: Request) {
 
   const [{ data: history }, { data: managedPrompt }] = await Promise.all([
     supabase.from("ai_messages").select("role,content").eq("conversation_id", conversationId).eq("user_id", user.id).order("created_at", { ascending: false }).limit(12),
-    service.from("ai_prompt_versions").select("prompt_text").eq("task_type", task).eq("is_active", true).order("version", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("ai_prompt_versions").select("prompt_text").eq("task_type", task).eq("is_active", true).order("version", { ascending: false }).limit(1).maybeSingle(),
   ]);
   const managedPromptText = (managedPrompt as ManagedPromptRow | null)?.prompt_text;
 
@@ -125,16 +122,25 @@ export async function POST(request: Request) {
   } catch (error) {
     clearTimeout(timeout);
     const errorCode = error instanceof Error ? error.message.slice(0, 120) : "ai_generation_failed";
-    await service.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: "router", model: "fallback", task_type: task, success: false, error_code: errorCode });
-    await service.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: "I’m unable to complete that AI request right now. Please try again shortly.", status: "failed", metadata: { requestId } });
+    await supabase.rpc("record_ai_response", { p_request_id: requestId, p_conversation_id: conversationId, p_provider: "router", p_model: "fallback", p_task_type: task, p_success: false, p_error_code: errorCode });
     return NextResponse.json({ error: "ai_unavailable", requestId }, { status: 503 });
   }
   clearTimeout(timeout);
 
-  const { data: saved, error: saveError } = await service.from("ai_messages").insert({ conversation_id: conversationId, user_id: user.id, role: "assistant", content: result.text, provider: result.provider, model: result.model, input_tokens: result.inputTokens, output_tokens: result.outputTokens, latency_ms: result.latencyMs, status: "completed", metadata: { requestId } }).select("id").single();
-  await service.from("ai_usage").insert({ request_id: requestId, user_id: user.id, conversation_id: conversationId, provider: result.provider, model: result.model, task_type: task, input_tokens: result.inputTokens, output_tokens: result.outputTokens, estimated_cost: result.estimatedCost, latency_ms: result.latencyMs, success: !saveError });
+  const { data: savedId, error: saveError } = await supabase.rpc("record_ai_response", {
+    p_request_id: requestId,
+    p_conversation_id: conversationId,
+    p_provider: result.provider,
+    p_model: result.model,
+    p_task_type: task,
+    p_content: result.text,
+    p_input_tokens: result.inputTokens || null,
+    p_output_tokens: result.outputTokens || null,
+    p_estimated_cost: result.estimatedCost || null,
+    p_latency_ms: result.latencyMs || null,
+    p_success: true,
+  });
   if (saveError) return NextResponse.json({ error: "response_save_failed", requestId }, { status: 500 });
-  await service.from("ai_conversations").update({ summary: result.text.slice(0, 1000) }).eq("id", conversationId).eq("user_id", user.id);
 
-  return NextResponse.json({ conversationId, messageId: saved?.id || null, requestId, response: result.text, provider: result.provider, model: result.model, usage: { inputTokens: result.inputTokens || null, outputTokens: result.outputTokens || null, latencyMs: result.latencyMs } });
+  return NextResponse.json({ conversationId, messageId: savedId || null, requestId, response: result.text, provider: result.provider, model: result.model, usage: { inputTokens: result.inputTokens || null, outputTokens: result.outputTokens || null, latencyMs: result.latencyMs } });
 }
