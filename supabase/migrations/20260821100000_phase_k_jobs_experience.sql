@@ -1,7 +1,6 @@
 -- DRIGHT Phase K: Jobs Experience
--- Additive only. The pre-implementation audit found no jobs, applications, or saved_jobs
--- tables in the current schema manifest, so this migration creates the smallest
--- self-contained job marketplace foundation while reusing existing profiles/auth.
+-- Additive only. The live schema has no jobs, applications, or saved_jobs tables.
+-- The existing universal_entities registry is reused with its current entity_uuid model.
 
 create sequence if not exists public.universal_job_id_seq;
 create sequence if not exists public.universal_application_id_seq;
@@ -88,13 +87,14 @@ create trigger trg_jobs_updated_at before update on public.jobs for each row exe
 drop trigger if exists trg_job_applications_updated_at on public.job_applications;
 create trigger trg_job_applications_updated_at before update on public.job_applications for each row execute function public.set_jobs_updated_at();
 
--- Register job/application IDs in the existing universal entity registry.
+-- Reuse the live universal_entities registry: (entity_type, entity_uuid) is its entity key.
 create or replace function public.register_job_universal_entity()
 returns trigger language plpgsql security definer set search_path=public as $$
 begin
-  insert into public.universal_entities(universal_id, entity_type, source_table, source_id)
-  values (new.universal_id, case when tg_table_name='jobs' then 'JOB' else 'APPLICATION' end, tg_table_name, new.id::text)
-  on conflict (source_table, source_id) do update set universal_id=excluded.universal_id, entity_type=excluded.entity_type, updated_at=now();
+  insert into public.universal_entities(entity_uuid, entity_type, universal_id, lifecycle_status, metadata)
+  values (new.id, case when tg_table_name='jobs' then 'JOB' else 'APPLICATION' end, new.universal_id, 'ACTIVE', '{}'::jsonb)
+  on conflict (entity_type, entity_uuid) do update
+    set universal_id=excluded.universal_id, lifecycle_status=excluded.lifecycle_status, updated_at=now();
   return new;
 end;
 $$;
@@ -104,12 +104,12 @@ create trigger trg_jobs_universal_entity after insert or update of universal_id 
 drop trigger if exists trg_job_applications_universal_entity on public.job_applications;
 create trigger trg_job_applications_universal_entity after insert or update of universal_id on public.job_applications for each row execute function public.register_job_universal_entity();
 
-insert into public.universal_entities(universal_id, entity_type, source_table, source_id)
-select universal_id, 'JOB', 'jobs', id::text from public.jobs
-on conflict (source_table, source_id) do update set universal_id=excluded.universal_id, entity_type='JOB', updated_at=now();
-insert into public.universal_entities(universal_id, entity_type, source_table, source_id)
-select universal_id, 'APPLICATION', 'job_applications', id::text from public.job_applications
-on conflict (source_table, source_id) do update set universal_id=excluded.universal_id, entity_type='APPLICATION', updated_at=now();
+insert into public.universal_entities(entity_uuid, entity_type, universal_id, lifecycle_status, metadata)
+select id, 'JOB', universal_id, 'ACTIVE', '{}'::jsonb from public.jobs
+on conflict (entity_type, entity_uuid) do update set universal_id=excluded.universal_id, lifecycle_status=excluded.lifecycle_status, updated_at=now();
+insert into public.universal_entities(entity_uuid, entity_type, universal_id, lifecycle_status, metadata)
+select id, 'APPLICATION', universal_id, 'ACTIVE', '{}'::jsonb from public.job_applications
+on conflict (entity_type, entity_uuid) do update set universal_id=excluded.universal_id, lifecycle_status=excluded.lifecycle_status, updated_at=now();
 
 alter table public.jobs enable row level security;
 alter table public.job_applications enable row level security;
@@ -155,7 +155,6 @@ drop policy if exists saved_jobs_owner_all on public.saved_jobs;
 create policy saved_jobs_owner_all on public.saved_jobs for all to authenticated
 using (user_id=auth.uid()) with check (user_id=auth.uid());
 
--- Public discovery does not expose applicant data; application RLS keeps it private.
 comment on table public.jobs is 'DRIGHT Jobs marketplace records. Employer identity is an existing auth/profile identity.';
 comment on table public.job_applications is 'Private DRIGHT job applications, accessible only to the applicant and owning employer.';
 comment on table public.saved_jobs is 'Per-user saved jobs; reuses job records rather than duplicating them.';
