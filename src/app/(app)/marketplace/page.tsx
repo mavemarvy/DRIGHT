@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, BookOpen, BriefcaseBusiness, CheckCircle2, Clock3, Filter, History, Search, ShoppingBag, Sparkles, SlidersHorizontal, Wrench, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { PromotionBannerCarousel } from "@/components/promotion-banner-carousel";
 
 type Item = { id: string; title: string; description: string | null; item_type: string | null; price: number | null; currency_code: string | null; status: string | null; created_at: string | null };
 type SortMode = "newest" | "oldest" | "price-low" | "price-high" | "name";
@@ -31,6 +32,7 @@ export default function MarketplacePage() {
   function clearSearch(){setQuery("");setSubmittedQuery("");}
 
   return <div className="dright-page mx-auto max-w-7xl">
+    <PromotionBannerCarousel placement="marketplace_home" deviceType="desktop" className="mb-7" />
     <section className="overflow-hidden rounded-[2rem] border border-[var(--border)] bg-[var(--surface)] shadow-[var(--shadow-md)]"><div className="p-6 sm:p-9 lg:p-11"><div className="max-w-3xl"><div className="inline-flex items-center gap-2 rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-semibold text-[var(--muted)]"><Sparkles size={14}/> DRIGHT Marketplace</div><h1 className="mt-5 text-3xl font-semibold tracking-tight sm:text-4xl lg:text-5xl">Discover what moves you forward.</h1><p className="mt-3 max-w-2xl text-sm leading-6 text-[var(--muted)] sm:text-base">Find real products, services, courses, jobs and tasks across the DRIGHT ecosystem.</p></div>
       <form className="mt-7 flex flex-col gap-2 rounded-[1.25rem] border border-[var(--border)] bg-[var(--background)] p-2 shadow-[var(--shadow-sm)] sm:flex-row sm:items-center" onSubmit={e=>{e.preventDefault();submitSearch();}}><div className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2"><Search size={20} className="shrink-0 text-[var(--muted)]"/><input value={query} onChange={e=>setQuery(e.target.value)} className="w-full min-w-0 bg-transparent text-sm outline-none placeholder:text-[var(--muted)]" placeholder="Search by name, keyword or listing ID..." aria-label="Search marketplace"/>{query&&<button type="button" onClick={clearSearch} className="rounded-full p-1 text-[var(--muted)]" aria-label="Clear search"><X size={16}/></button>}</div><button type="submit" className="rounded-xl bg-[var(--primary)] px-5 py-3 text-sm font-semibold text-[var(--background)]">Search</button></form>
       {recentSearches.length>0&&!submittedQuery&&<div className="mt-4 flex items-center gap-2 overflow-x-auto pb-1"><History size={15} className="shrink-0 text-[var(--muted)]"/>{recentSearches.map(s=><button key={s} onClick={()=>{setQuery(s);submitSearch(s)}} className="shrink-0 rounded-full border border-[var(--border)] bg-[var(--background)] px-3 py-1.5 text-xs font-medium text-[var(--muted)]">{s}</button>)}</div>}
