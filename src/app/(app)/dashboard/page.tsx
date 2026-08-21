@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowRight, Bell, Compass, Gift, Heart, MessageSquare, ShoppingBag, Sparkles, Store, Users, Wallet, Activity, Megaphone, BarChart3, Clock3, ChevronRight, type LucideIcon } from "lucide-react";
+import { ArrowRight, Bell, Compass, Gift, MessageSquare, ShoppingBag, Sparkles, Store, Wallet, Activity, Megaphone, Clock3, ChevronRight, type LucideIcon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = { username: string | null; full_name: string | null };
@@ -11,7 +11,7 @@ type LedgerEntry = { entry_id: string; entry_type: string; direction: string; am
 type OrderRow = { id: string; status: string | null; created_at: string; total_amount?: number | null; currency_code?: string | null };
 type ReferralSummary = { direct?: number; level2?: number; level3?: number; available?: number };
 type StatCard = { label: string; value: string; helper: string; icon: LucideIcon; href: string };
-type QuickCard = { title: string; text: string; href: string; icon: LucideIcon; tone?: string };
+type QuickCard = { title: string; text: string; href: string; icon: LucideIcon };
 
 function Skeleton({ className = "" }: { className?: string }) { return <div aria-hidden="true" className={`animate-pulse rounded-[var(--radius-md)] bg-[var(--surface-muted)] ${className}`}/>; }
 function money(value: number, currency = "USD") { try { return new Intl.NumberFormat(undefined, { style: "currency", currency }).format(Number(value || 0)); } catch { return `${Number(value || 0).toFixed(2)} ${currency}`; } }
@@ -23,7 +23,7 @@ export default function DashboardPage() {
   const [ledger, setLedger] = useState<LedgerEntry[]>([]);
   const [orders, setOrders] = useState<OrderRow[]>([]);
   const [referral, setReferral] = useState<ReferralSummary>({});
-  const [counts, setCounts] = useState({ orders: 0, favorites: 0, notifications: 0, messages: 0 });
+  const [counts, setCounts] = useState({ orders: 0, savedPosts: 0, notifications: 0, messages: 0 });
   const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -35,7 +35,7 @@ export default function DashboardPage() {
       const { data: auth } = await supabase.auth.getUser();
       const userId = auth.user?.id;
       if (!userId) { setLoading(false); return; }
-      const [profileResult, ordersCount, favoritesCount, notificationsCount, messagesCount, walletResult, ledgerResult, recentOrders, referralResult, adminResult] = await Promise.all([
+      const [profileResult, ordersCount, savedPostsCount, notificationsCount, messagesCount, walletResult, ledgerResult, recentOrders, referralResult, adminResult] = await Promise.all([
         supabase.from("profiles").select("username,full_name").eq("id", userId).maybeSingle(),
         supabase.from("orders").select("id", { count: "exact", head: true }).eq("buyer_user_id", userId),
         supabase.from("post_saves").select("post_id", { count: "exact", head: true }).eq("user_id", userId),
@@ -48,9 +48,10 @@ export default function DashboardPage() {
         supabase.rpc("is_super_admin", { check_user_id: userId }),
       ]);
       if (cancelled) return;
-      if (profileResult.error) setError(profileResult.error.message);
+      const failures = [profileResult, ordersCount, savedPostsCount, notificationsCount, messagesCount, walletResult, ledgerResult, recentOrders, referralResult, adminResult].filter(result => result.error).map(result => result.error?.message).filter(Boolean) as string[];
+      if (failures.length) setError(failures.slice(0, 2).join(" • "));
       setProfile(profileResult.data ?? { username: null, full_name: null });
-      setCounts({ orders: ordersCount.count ?? 0, favorites: favoritesCount.count ?? 0, notifications: notificationsCount.count ?? 0, messages: messagesCount.count ?? 0 });
+      setCounts({ orders: ordersCount.count ?? 0, savedPosts: savedPostsCount.count ?? 0, notifications: notificationsCount.count ?? 0, messages: messagesCount.count ?? 0 });
       if (!walletResult.error) setWallet(walletResult.data as WalletRow | null);
       if (!ledgerResult.error) setLedger((ledgerResult.data ?? []) as LedgerEntry[]);
       if (!recentOrders.error) setOrders((recentOrders.data ?? []) as OrderRow[]);
@@ -72,8 +73,8 @@ export default function DashboardPage() {
   ];
   const quick: QuickCard[] = [
     { title: "Explore marketplace", text: "Discover products, services, courses and jobs using DRIGHT search.", href: "/marketplace", icon: Compass },
-    { title: "Open buyer space", text: "Review purchases, saved items and buyer activity.", href: "/buyer", icon: ShoppingBag },
-    { title: "Build & earn", text: "Open your vendor or affiliate workspace when enabled for your account.", href: "/vendor", icon: Store },
+    { title: "Review purchases", text: "Review your orders and current buyer activity.", href: "/orders", icon: ShoppingBag },
+    { title: "Build & earn", text: "Open your vendor workspace when it is enabled for your account.", href: "/vendor", icon: Store },
     { title: "AI command center", text: "Use DRIGHT Gen.ai for contextual assistance and discovery.", href: "/gen-ai", icon: Sparkles },
   ];
   const activity = [...ledger.map(e => ({ key: e.entry_id, title: e.description || e.entry_type.replaceAll("_", " "), detail: `${e.direction === "credit" ? "+" : "−"}${money(Number(e.amount), e.currency_code)}`, date: e.created_at })), ...orders.map(o => ({ key: `order-${o.id}`, title: `Order ${o.id}`, detail: o.status || "submitted", date: o.created_at }))].sort((a,b)=>new Date(b.date).getTime()-new Date(a.date).getTime()).slice(0,5);
@@ -99,7 +100,7 @@ export default function DashboardPage() {
     <section className="mt-7"><div className="flex items-end justify-between gap-4"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-[var(--muted)]">Quick actions</p><h2 className="mt-1 text-2xl font-black tracking-tight">Move your work forward</h2></div></div><div className="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{quick.map(({title,text,href,icon:Icon})=><Link key={href} href={href} className="group rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:-translate-y-0.5 hover:border-[var(--border-strong)] hover:shadow-[var(--shadow-md)]"><span className="grid h-10 w-10 place-items-center rounded-[var(--radius-md)] bg-[var(--surface-muted)] transition group-hover:bg-[var(--accent-soft)] group-hover:text-[var(--accent)]"><Icon size={19}/></span><h3 className="mt-5 font-bold">{title}</h3><p className="mt-2 min-h-12 text-sm leading-5 text-[var(--muted)]">{text}</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold">Open <ArrowRight size={14} className="transition group-hover:translate-x-1"/></span></Link>)}</div></section>
 
     <section className="mt-7 grid gap-5 lg:grid-cols-3">
-      <Link href="/favorites" className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:shadow-[var(--shadow-md)]"><div className="flex items-center gap-3"><Heart size={18}/><h3 className="font-bold">Saved & recommendations</h3></div><p className="mt-2 text-sm leading-6 text-[var(--muted)]">You have {counts.favorites} saved item{counts.favorites===1?"":"s"}. Continue browsing to refine what DRIGHT recommends to you.</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[var(--accent)]">Open favorites <ArrowRight size={14}/></span></Link>
+      <Link href="/social" className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:shadow-[var(--shadow-md)]"><div className="flex items-center gap-3"><Activity size={18}/><h3 className="font-bold">Saved posts & recommendations</h3></div><p className="mt-2 text-sm leading-6 text-[var(--muted)]">You have {counts.savedPosts} saved post{counts.savedPosts===1?"":"s"}. Continue browsing the social experience to refine what DRIGHT recommends to you.</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[var(--accent)]">Open social <ArrowRight size={14}/></span></Link>
       <Link href="/messages" className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:shadow-[var(--shadow-md)]"><div className="flex items-center gap-3"><MessageSquare size={18}/><h3 className="font-bold">Messages</h3></div><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Your account currently has {counts.messages} message record{counts.messages===1?"":"s"}. Keep conversations in one workspace.</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[var(--accent)]">Open messages <ArrowRight size={14}/></span></Link>
       {isAdmin?<Link href="/admin/promotions" className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:shadow-[var(--shadow-md)]"><div className="flex items-center gap-3"><Megaphone size={18}/><h3 className="font-bold">Campaign workspace</h3></div><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Manage promotions and advertising from the permission-aware admin workspace.</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[var(--accent)]">Open campaigns <ArrowRight size={14}/></span></Link>:<Link href="/gen-ai" className="rounded-[var(--radius-xl)] border border-[var(--border)] bg-[var(--surface)] p-5 shadow-[var(--shadow-xs)] transition hover:shadow-[var(--shadow-md)]"><div className="flex items-center gap-3"><Sparkles size={18}/><h3 className="font-bold">AI insights</h3></div><p className="mt-2 text-sm leading-6 text-[var(--muted)]">Use DRIGHT Gen.ai to turn your current marketplace activity into contextual assistance without inventing dashboard metrics.</p><span className="mt-4 inline-flex items-center gap-2 text-xs font-bold text-[var(--accent)]">Open Gen.ai <ArrowRight size={14}/></span></Link>}
     </section>
