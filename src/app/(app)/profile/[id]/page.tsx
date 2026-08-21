@@ -2,12 +2,11 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, CheckCircle2, ExternalLink, Heart, MapPin, ShieldCheck, UserPlus, UserRoundMinus } from "lucide-react";
+import { ArrowLeft, CheckCircle2, ExternalLink, Heart, MapPin, MessageSquare, ShieldCheck, UserPlus, UserRoundMinus } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 type Profile = { id: string; username: string | null; display_name: string | null; bio: string | null; avatar_url: string | null; cover_url: string | null; profession: string | null; country: string | null; website: string | null; skills: string[] | null; languages: string[] | null; profile_visibility: string | null; created_at: string };
 type Listing = { id: string; public_id: string | null; title: string; price: number | null; currency_code: string | null; image_url: string | null; item_type: string | null };
-
 type ProfileRouteProps = { params: Promise<{ id: string }> };
 
 export default function PublicProfilePage({ params }: ProfileRouteProps) {
@@ -28,8 +27,7 @@ export default function PublicProfilePage({ params }: ProfileRouteProps) {
     async function load() {
       const { id } = await params;
       if (cancelled) return;
-      setProfileId(id);
-      setLoading(true); setError("");
+      setProfileId(id); setLoading(true); setError("");
       const { data: target, error: profileError } = await supabase.from("user_profiles").select("id,username,display_name,bio,avatar_url,cover_url,profession,country,website,skills,languages,profile_visibility,created_at").eq("id", id).maybeSingle();
       if (profileError || !target) { if (!cancelled) { setError(profileError?.message || "This profile is unavailable."); setLoading(false); } return; }
       if (cancelled) return;
@@ -54,8 +52,7 @@ export default function PublicProfilePage({ params }: ProfileRouteProps) {
   }, [params, supabase]);
 
   async function toggleFollow() {
-    const id = profileId;
-    const { data: { user } } = await supabase.auth.getUser();
+    const id = profileId; const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = `/login?next=/profile/${id}`; return; }
     if (!id || user.id === id) return;
     setBusy(true);
@@ -65,8 +62,7 @@ export default function PublicProfilePage({ params }: ProfileRouteProps) {
   }
 
   async function toggleLike() {
-    const id = profileId;
-    const { data: { user } } = await supabase.auth.getUser();
+    const id = profileId; const { data: { user } } = await supabase.auth.getUser();
     if (!user) { window.location.href = `/login?next=/profile/${id}`; return; }
     if (!id || user.id === id) return;
     setBusy(true);
@@ -85,11 +81,11 @@ export default function PublicProfilePage({ params }: ProfileRouteProps) {
       <div className="h-40 bg-[var(--background)] sm:h-56">{profile.cover_url && <img src={profile.cover_url} alt="" className="h-full w-full object-cover" />}</div>
       <div className="px-5 pb-6 sm:px-8">
         <div className="-mt-14 flex flex-col gap-4 sm:-mt-16 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex items-end gap-4"><div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--surface)] bg-[var(--background)] sm:h-32 sm:w-32">{profile.avatar_url ? <img src={profile.avatar_url} alt={name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-3xl font-bold">{name.slice(0,1).toUpperCase()}</div>}</div><div className="pb-1"><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">{name}</h1><ShieldCheck size={18} /></div>{profile.username && <p className="text-sm text-[var(--muted)]">@{profile.username}</p>}{profile.profession && <p className="mt-1 text-sm font-medium">{profile.profession}</p>}</div></div>
-          <div className="flex gap-2"><button onClick={toggleLike} disabled={busy} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${liked ? "bg-[var(--primary)] text-[var(--primary-contrast)]" : "border-[var(--border)]"}`}><Heart size={16} fill={liked ? "currentColor" : "none"}/> Like</button><button onClick={toggleFollow} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 font-semibold text-[var(--primary-contrast)]">{followingUser ? <><UserRoundMinus size={16}/> Following</> : <><UserPlus size={16}/> Follow</>}</button></div>
+          <div className="flex items-end gap-4"><div className="h-28 w-28 overflow-hidden rounded-full border-4 border-[var(--surface)] bg-[var(--background)] sm:h-32 sm:w-32">{profile.avatar_url ? <img src={profile.avatar_url} alt={name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-3xl font-bold">{name.slice(0,1).toUpperCase()}</div>}</div><div className="pb-1"><div className="flex flex-wrap items-center gap-2"><h1 className="text-2xl font-bold">{name}</h1><ShieldCheck size={18} /></div>{profile.username && <p className="text-sm text-[var(--muted)]">@{profile.username}</p>}<p className="mt-1 text-xs font-medium text-[var(--muted)]">DRIGHT ID · @{profile.username || "user"}</p>{profile.profession && <p className="mt-1 text-sm font-medium">{profile.profession}</p>}</div></div>
+          <div className="flex flex-wrap gap-2"><Link href={`/messages/new?user=${encodeURIComponent(profile.id)}`} className="inline-flex items-center gap-2 rounded-xl border border-[var(--border)] px-4 py-2.5 text-sm font-semibold"><MessageSquare size={16}/> Message</Link><button onClick={toggleLike} disabled={busy} className={`inline-flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-semibold ${liked ? "bg-[var(--primary)] text-[var(--primary-contrast)]" : "border-[var(--border)]"}`}><Heart size={16} fill={liked ? "currentColor" : "none"}/> Like</button><button onClick={toggleFollow} disabled={busy} className="inline-flex items-center gap-2 rounded-xl bg-[var(--primary)] px-4 py-2.5 font-semibold text-[var(--primary-contrast)]">{followingUser ? <><UserRoundMinus size={16}/> Following</> : <><UserPlus size={16}/> Follow</>}</button></div>
         </div>
         {profile.bio && <p className="mt-5 max-w-3xl text-sm leading-6 text-[var(--muted)]">{profile.bio}</p>}
-        <div className="mt-5 flex flex-wrap gap-5 text-sm"><span><strong>{followers}</strong> followers</span><span><strong>{following}</strong> following</span><span><strong>{listings.length}</strong> listings</span></div>
+        <div className="mt-5 flex flex-wrap gap-5 text-sm"><Link href={`/profile/${profile.id}/network?tab=followers`} className="hover:underline"><strong>{followers}</strong> followers</Link><Link href={`/profile/${profile.id}/network?tab=following`} className="hover:underline"><strong>{following}</strong> following</Link><span><strong>{listings.length}</strong> listings</span></div>
         <div className="mt-5 flex flex-wrap gap-3 text-xs text-[var(--muted)]">{profile.country && <span className="inline-flex items-center gap-1"><MapPin size={14}/> {profile.country}</span>}{profile.website && <a href={profile.website} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline"><ExternalLink size={14}/> Website</a>}{profile.skills?.map(skill => <span key={skill} className="rounded-full border border-[var(--border)] px-3 py-1.5">{skill}</span>)}</div>
       </div>
     </section>
