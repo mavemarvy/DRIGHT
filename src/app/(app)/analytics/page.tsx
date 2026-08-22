@@ -429,11 +429,14 @@ export default function AnalyticsPage() {
           { label: "Rewards", value: rewards(current.data ?? []), previous: rewards(previous.data ?? []), format: "money", currency: "USD" },
           { label: "Conversion", value: current.data?.length ? (qualified(current.data ?? []) / current.data.length) * 100 : 0, previous: previous.data?.length ? (qualified(previous.data ?? []) / previous.data.length) * 100 : 0, format: "percent" },
         ]);
-        setTrend((current.data ?? []).reduce<Map<string, number>>((map, item) => {
-          const day = item.created_at.slice(0, 10);
-          map.set(day, (map.get(day) ?? 0) + 1);
-          return map;
-        }, new Map()).entries().sort().map(([label, value]) => ({ label, value })));
+        const referralDaily = Array.from(
+          (current.data ?? []).reduce<Map<string, number>>((map, item) => {
+            const day = item.created_at.slice(0, 10);
+            map.set(day, (map.get(day) ?? 0) + 1);
+            return map;
+          }, new Map()).entries(),
+        ).sort(([a], [b]) => a.localeCompare(b));
+        setTrend(referralDaily.map(([label, value]) => ({ label, value })));
         setRows((current.data ?? []).map((item) => ({ referral_id: item.id, status: item.status, reward_amount: Number(item.reward_amount || 0), created_at: item.created_at })));
       }
 
@@ -449,11 +452,14 @@ export default function AnalyticsPage() {
           { label: "Jobs", value: current.data?.length ?? 0, previous: previous.data?.length ?? 0 },
           { label: "Views", value: currentViews, previous: previousViews },
         ]);
-        setTrend((current.data ?? []).reduce<Map<string, number>>((map, job) => {
-          const day = job.created_at.slice(0, 10);
-          map.set(day, (map.get(day) ?? 0) + Number(job.views || 0));
-          return map;
-        }, new Map()).entries().sort().map(([label, value]) => ({ label, value })));
+        const jobDaily = Array.from(
+          (current.data ?? []).reduce<Map<string, number>>((map, job) => {
+            const day = job.created_at.slice(0, 10);
+            map.set(day, (map.get(day) ?? 0) + Number(job.views || 0));
+            return map;
+          }, new Map()).entries(),
+        ).sort(([a], [b]) => a.localeCompare(b));
+        setTrend(jobDaily.map(([label, value]) => ({ label, value })));
         setRows((current.data ?? []).map((job) => ({ job_id: job.id, title: job.title, views: Number(job.views || 0), created_at: job.created_at })));
       }
 
