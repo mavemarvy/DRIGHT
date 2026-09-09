@@ -1,12 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArrowRight, Loader2, LogIn } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
-  const supabase = createClient();
+  const supabase = useMemo(() => createClient(), []);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -22,18 +22,41 @@ export default function LoginPage() {
     setError("");
     setLoading(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
+      const { data, error: signInError } = await supabase.auth.signInWithPassword({
+        email: normalizedEmail,
+        password,
+      });
 
-    if (error) {
-      setError(error.message);
+      if (signInError) {
+        setError(signInError.message);
+        return;
+      }
+
+      // /dashboard is protected by a server component. Do not navigate until
+      // Supabase has actually persisted a usable browser session/cookie.
+      let session = data.session;
+      if (!session) {
+        const { data: persisted, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError) {
+          setError(sessionError.message);
+          return;
+        }
+        session = persisted.session;
+      }
+
+      if (!session) {
+        setError("Sign-in succeeded but no session was created. Please try again.");
+        return;
+      }
+
+      window.location.replace("/dashboard");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to sign in. Please check your connection and try again.");
+    } finally {
       setLoading(false);
-      return;
     }
-
-    window.location.href = "/dashboard";
   }
 
   return (
