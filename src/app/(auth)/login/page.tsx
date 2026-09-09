@@ -36,19 +36,16 @@ export default function LoginPage() {
 
       // /dashboard is protected by a server component. Do not navigate until
       // Supabase has actually persisted a usable browser session/cookie.
-      let session = data.session;
-      if (!session) {
+      if (!data.session) {
         const { data: persisted, error: sessionError } = await supabase.auth.getSession();
         if (sessionError) {
           setError(sessionError.message);
           return;
         }
-        session = persisted.session;
-      }
-
-      if (!session) {
-        setError("Sign-in succeeded but no session was created. Please try again.");
-        return;
+        if (!persisted.session) {
+          setError("Sign-in succeeded but no session was created. Please try again.");
+          return;
+        }
       }
 
       window.location.replace("/dashboard");
