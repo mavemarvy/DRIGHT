@@ -1,34 +1,16 @@
-import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({ request });
-
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-
-  // Keep the app reachable even if deployment configuration is incomplete;
-  // pages that require Supabase will surface their own configuration/auth error.
-  if (!supabaseUrl || !supabaseKey) return response;
-
-  const supabase = createServerClient(supabaseUrl, supabaseKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
-      },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value));
-        response = NextResponse.next({ request });
-        cookiesToSet.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-      },
-    },
-  });
-
-  // Refresh expired/near-expiry auth cookies before protected server components
-  // call auth.getUser(). This keeps browser and server auth state synchronized.
-  await supabase.auth.getUser();
-
-  return response;
+/**
+ * Keep routing middleware network-free.
+ *
+ * Authentication is enforced by protected layouts/routes (for example the
+ * `(app)` layout calls getCurrentUser() and redirects unauthenticated users).
+ * Performing Supabase network I/O here made every request depend on an
+ * external auth round-trip and could take the entire site down when that call
+ * stalled. Middleware must return immediately so public routes stay reachable.
+ */
+export function middleware(request: NextRequest) {
+  return NextResponse.next({ request });
 }
 
 export const config = {
