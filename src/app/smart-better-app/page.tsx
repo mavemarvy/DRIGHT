@@ -8,7 +8,7 @@ type Status = "not_placed" | "placed" | "won" | "lost";
 
 const matchA = {
   name: "Match 1",
-  short: "M1 Team1–Team2",
+  short: "M1 T1–T2",
   outcomes: [
     { score: "1:0", odds: 7.05 },
     { score: "2:0", odds: 9.60 },
@@ -41,7 +41,7 @@ const matchA = {
 
 const matchB = {
   name: "Match 2",
-  short: "M2 Team1–Team2",
+  short: "M2 T1–T2",
   outcomes: [
     { score: "1:0", odds: 6.73 },
     { score: "2:0", odds: 9.80 },
@@ -181,9 +181,9 @@ export default function SmartBetterAppPage() {
   function exportCsv() {
     const rows = combinations.map((combo) => [
       combo.id,
-      "Team1 vs Team2",
+      "T1 vs T2",
       combo.a.score,
-      "Team1 vs Team2",
+      "T1 vs T2",
       combo.b.score,
       combo.combinedOdds.toFixed(4),
       stake.toFixed(2),
