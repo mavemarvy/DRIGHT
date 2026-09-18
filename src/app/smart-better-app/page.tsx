@@ -1,9 +1,7 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import {
-  ArrowLeft,
   Check,
   ChevronLeft,
   ChevronRight,
@@ -90,7 +88,8 @@ const combinations = matchA.outcomes.flatMap((a, aIndex) =>
   }),
 );
 
-const STORAGE_KEY = "smart-better-app.correct-score-planner.v1";\nconst LEGACY_STORAGE_KEY = "dright.correct-score-planner.v1";
+const STORAGE_KEY = "smart-better-app.correct-score-planner.v1";
+const LEGACY_STORAGE_KEY = "dright.correct-score-planner.v1";
 const PAGE_SIZE = 40;
 
 function money(value: number) {
@@ -266,7 +265,7 @@ export default function BetCombinationsPage() {
   }
 
   return (
-    <main className="min-h-screen bg-[#f4f5f7] text-[#1f2328]" style={{"--background":"#f4f5f7","--foreground":"#1f2328","--surface":"#ffffff","--border":"#e4e7ec","--muted":"#667085","--primary":"#e30613","--primary-contrast":"#ffffff","--accent":"#e30613"} as React.CSSProperties}>
+    <main className="min-h-screen bg-[#f4f5f7] text-[#1f2328]" style={{"--background":"#f4f5f7","--foreground":"#1f2328","--surface":"#ffffff","--border":"#e4e7ec","--muted":"#667085","--primary":"#e30613","--primary-contrast":"#ffffff","--accent":"#e30613"} as CSSProperties}>
       <header className="sticky top-0 z-20 border-b border-[#b8000c] bg-[#e30613] text-white shadow-sm">
         <div className="mx-auto flex min-h-16 max-w-7xl items-center gap-3 px-4 py-3 sm:px-6 lg:px-8">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white/15 text-lg font-black">S</div>
